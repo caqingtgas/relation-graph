@@ -105,6 +105,23 @@ class AppController {
     this.statusBox.className = `status ${type}`;
   }
 
+  escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  formatPathLikeText(value) {
+    const escaped = this.escapeHtml(value);
+    return escaped.replace(
+      /([A-Za-z]:\\(?:[^\\\/:*?"<>|\r\n]+\\)*[^\\\/:*?"<>|\r\n，。；；、,]*)/g,
+      '<span class="path-inline">$1</span>'
+    );
+  }
+
   setLoading(isLoading) {
     this.generateBtn.disabled = isLoading;
     this.startLocalRuntimeBtn.disabled = isLoading;
@@ -293,7 +310,7 @@ class AppController {
 
     this.providerModeBadge.textContent = providerMode === "local" ? "LOCAL" : runtimeStatus.toUpperCase();
     this.providerModeBadge.className = `provider-badge ${providerMode === "local" ? "provider-badge--local" : "provider-badge--ark"}`;
-    this.providerStatusText.textContent = detail;
+    this.providerStatusText.innerHTML = this.formatPathLikeText(detail);
     this.localModelName.textContent = modelName;
     this.localModelDir.textContent = modelDir;
 

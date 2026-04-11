@@ -4,7 +4,7 @@ from collections import Counter
 from typing import Any, Literal
 import unicodedata
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ENTITY_TYPES = (
@@ -72,25 +72,41 @@ def choose_entity_type(values: list[str]) -> str:
 
 
 class RelationPayloadItem(BaseModel):
-    node_1: str
-    node_1_type: EntityType = "Other"
-    node_2: str
-    node_2_type: EntityType = "Other"
+    model_config = ConfigDict(extra="forbid")
+
+    node_1: str = Field(
+        ...,
+        description="关系起点的实体或概念。必须是原子化、可独立成节点的名词短语，不要包含关系词、解释句或冗余修饰。",
+    )
+    node_1_type: EntityType = Field(
+        ...,
+        description="node_1 的实体类型。必须从枚举中选择最贴切的一项；如果无法判断，使用 Other。",
+    )
+    node_2: str = Field(
+        ...,
+        description="关系终点的实体或概念。必须是原子化、可独立成节点的名词短语，不要包含关系词、解释句或冗余修饰。",
+    )
+    node_2_type: EntityType = Field(
+        ...,
+        description="node_2 的实体类型。必须从枚举中选择最贴切的一项；如果无法判断，使用 Other。",
+    )
     edge: str = Field(
         ...,
-        description="可直接展示在图谱连线上的关系短语，不要把方向性写成解释句。",
+        description="可直接展示在图谱连线上的简短中文关系短语，不要写成长句，不要把方向性写成解释句。",
     )
     edge_mode: EdgeMode = Field(
-        default="undirected",
-        description="默认使用 undirected；仅当关系具有非常明确的单向语义时才使用 directed。",
+        ...,
+        description="关系方向模式。只有当文本明确表达单向作用、控制、因果、依赖、从属或传递时才使用 directed；其余使用 undirected。",
     )
 
 
 class RelationBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     relations: list[RelationPayloadItem] = Field(
-        default_factory=list,
+        ...,
         max_length=20,
-        description="最多返回 20 条最关键、最明确、最适合建图的关系。",
+        description="关系抽取结果列表。只保留最关键、最明确、最适合建图的关系；允许为空数组；最多返回 20 条。",
     )
 
 

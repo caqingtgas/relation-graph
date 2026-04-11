@@ -32,8 +32,11 @@ body {
   padding: 24px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.02);
   z-index: 10;
@@ -83,6 +86,7 @@ header h1 {
 }
 
 .mode-panel {
+  min-width: 0;
   margin-bottom: 24px;
 }
 
@@ -98,6 +102,7 @@ header h1 {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: linear-gradient(180deg, #f9fbfe 0%, #f4f8fd 100%);
+  min-width: 0;
 }
 
 .provider-panel__header {
@@ -117,12 +122,31 @@ header h1 {
   font-size: 13px;
   color: var(--text-main);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.path-inline {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(31, 102, 209, 0.08);
+  color: #174ea6;
+  font-family: "Consolas", "Cascadia Mono", "SFMono-Regular", monospace;
+  font-size: 0.95em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .provider-panel__meta {
   display: grid;
   gap: 10px;
   margin-bottom: 12px;
+  min-width: 0;
+}
+
+.provider-panel__meta > div {
+  min-width: 0;
 }
 
 .provider-panel__label {
@@ -136,7 +160,16 @@ header h1 {
   display: block;
   font-size: 13px;
   color: var(--text-main);
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#localModelDir {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(31, 102, 209, 0.06);
+  color: #174ea6;
+  font-family: "Consolas", "Cascadia Mono", "SFMono-Regular", monospace;
 }
 
 .provider-badge {
@@ -222,6 +255,16 @@ header h1 {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.config-hint--field-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(31, 102, 209, 0.05);
+  border: 1px solid rgba(31, 102, 209, 0.12);
+  color: #52657f;
+  line-height: 1.6;
 }
 
 .upload-section {

@@ -79,7 +79,7 @@ class LLMRequestPool:
             system_prompt=RELATION_SYSTEM_PROMPT,
             response_schema=build_relation_response_schema(),
             schema_name="knowledge_graph_relations",
-            schema_description="知识图谱关系抽取结果",
+            schema_description="从输入文本中抽取可直接用于构建知识图谱的关系列表，只包含关键且明确的关系",
             model=model,
             request_label=f"chunk {chunk_id}",
         )
