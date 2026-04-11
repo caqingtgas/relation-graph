@@ -56,6 +56,13 @@ class ProviderSelection:
     detail: str
 
 
+@dataclass(frozen=True)
+class PortOwnerInfo:
+    pid: int
+    process_name: str | None = None
+    process_path: str | None = None
+
+
 def choose_generation_target(
     local_status: dict,
     *,
@@ -192,12 +199,21 @@ class EmbeddedOllamaRuntime:
             self._process = None
             self._active_model_dir = None
 
-        if self.is_ready():
-            if self._active_model_dir is None or self._active_model_dir == model_dir:
+        desired_models = set(LocalModelRegistry.list_model_names_from_disk(model_dir))
+        runtime_models = self._list_models_if_ready()
+        if runtime_models is not None:
+            if not desired_models or desired_models.intersection(runtime_models):
+                if self._active_model_dir is None:
+                    self._active_model_dir = model_dir
                 return None
             self.shutdown()
-        if self.is_port_open():
-            return f"本地推理端口 {LOCAL_OLLAMA_PORT} 已被其他程序占用，无法启动嵌入式 Ollama。"
+            stop_error = self._stop_conflicting_ollama_on_port()
+            if stop_error:
+                return stop_error
+        elif self.is_port_open():
+            stop_error = self._stop_conflicting_ollama_on_port()
+            if stop_error:
+                return stop_error
 
         env = os.environ.copy()
         env["OLLAMA_HOST"] = f"{LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT}"
@@ -249,14 +265,98 @@ class EmbeddedOllamaRuntime:
                 retry_count=0,
                 parse_retry_count=0,
             )
-        ) as client:
+            ) as client:
             return client.list_models()
+
+    def _list_models_if_ready(self) -> set[str] | None:
+        try:
+            return {name.strip() for name in self.list_model_names() if name.strip()}
+        except OllamaClientError:
+            return None
 
     @staticmethod
     def is_port_open() -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.2)
             return sock.connect_ex((LOCAL_OLLAMA_HOST, LOCAL_OLLAMA_PORT)) == 0
+
+    @staticmethod
+    def _process_name_matches_ollama(info: PortOwnerInfo | None) -> bool:
+        if info is None:
+            return False
+        name = (info.process_name or "").strip().lower()
+        path = Path(info.process_path).name.lower() if info.process_path else ""
+        return name == "ollama" or path == "ollama.exe"
+
+    @staticmethod
+    def _wait_until_port_closed(timeout_seconds: float = 5.0) -> bool:
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            if not EmbeddedOllamaRuntime.is_port_open():
+                return True
+            time.sleep(0.2)
+        return not EmbeddedOllamaRuntime.is_port_open()
+
+    @staticmethod
+    def _find_port_owner() -> PortOwnerInfo | None:
+        if os.name != "nt":
+            return None
+        script = f"""
+$conn = Get-NetTCPConnection -LocalAddress '{LOCAL_OLLAMA_HOST}' -LocalPort {LOCAL_OLLAMA_PORT} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $conn) {{
+  return
+}}
+$proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+[pscustomobject]@{{
+  pid = [int]$conn.OwningProcess
+  process_name = if ($proc) {{ $proc.ProcessName }} else {{ $null }}
+  process_path = if ($proc) {{ $proc.Path }} else {{ $null }}
+}} | ConvertTo-Json -Compress
+"""
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        payload = (result.stdout or "").strip()
+        if not payload:
+            return None
+        try:
+            parsed = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+        pid = int(parsed.get("pid") or 0)
+        if pid <= 0:
+            return None
+        process_name = str(parsed.get("process_name") or "").strip() or None
+        process_path = str(parsed.get("process_path") or "").strip() or None
+        return PortOwnerInfo(pid=pid, process_name=process_name, process_path=process_path)
+
+    def _stop_conflicting_ollama_on_port(self) -> str | None:
+        info = self._find_port_owner()
+        if info is None:
+            if self.is_port_open():
+                return f"本地推理端口 {LOCAL_OLLAMA_PORT} 已被其他程序占用，无法启动嵌入式 Ollama。"
+            return None
+        if not self._process_name_matches_ollama(info):
+            process_label = info.process_name or f"PID {info.pid}"
+            return f"本地推理端口 {LOCAL_OLLAMA_PORT} 当前被 {process_label} 占用，无法自动切换到当前项目的本地引擎。"
+
+        if self._process is not None and self._process.poll() is None and self._process.pid == info.pid:
+            self.shutdown()
+        else:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"Stop-Process -Id {info.pid} -Force"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        if self._wait_until_port_closed():
+            return None
+        return f"本地推理端口 {LOCAL_OLLAMA_PORT} 上的 ollama.exe 未能成功关闭，请手动结束该进程后重试。"
 
     @staticmethod
     def quote_ps(value: str) -> str:
@@ -318,7 +418,8 @@ class LocalProviderManager:
         local_status = self.get_public_status(auto_start=False)
         requested_provider = (provider_preference or "auto").strip().lower()
         should_try_local_start = (
-            requested_provider in {"auto", "local"} and local_status.get("local_runtime_status") == LocalRuntimeStatus.STOPPED.value
+            requested_provider in {"auto", "local"}
+            and local_status.get("local_runtime_status") in {LocalRuntimeStatus.STOPPED.value, LocalRuntimeStatus.FAILED.value}
         )
         if should_try_local_start:
             try:
@@ -368,11 +469,6 @@ class LocalProviderManager:
                 return status.to_dict()
             if model_dir is None:
                 raise RuntimeError(status.detail)
-            if status.local_runtime_status not in {
-                LocalRuntimeStatus.STOPPED.value,
-                LocalRuntimeStatus.MISSING_MODEL.value,
-            }:
-                raise RuntimeError(status.detail)
             if status.local_runtime_status == LocalRuntimeStatus.MISSING_MODEL.value:
                 raise RuntimeError(status.detail)
             start_error = self._ensure_runtime_started_locked(model_dir)
@@ -412,6 +508,16 @@ class LocalProviderManager:
             preferred_local_model=preferred_model,
             available_local_models=available_models,
             local_model_candidates=list(LOCAL_MODEL_CANDIDATES),
+        )
+
+    @staticmethod
+    def _runtime_model_mismatch_detail(model_dir: Path, disk_models: list[str]) -> str:
+        models_text = " / ".join(disk_models) if disk_models else "白名单模型"
+        return (
+            f"已在 {model_dir} 识别到本地模型 {models_text}，"
+            f"但当前 {LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT} 上运行的 Ollama 未暴露这些模型。"
+            " 通常是旧的或其他项目启动的 Ollama 进程占用了该端口，"
+            "或服务启动时没有绑定这个模型目录。请先关闭已有 ollama.exe，再重新点击“启动本地引擎”。"
         )
 
     def _get_public_status_locked(self, *, auto_start: bool) -> LocalProviderStatus:
@@ -522,6 +628,14 @@ class LocalProviderManager:
         available_models = [candidate for candidate in LOCAL_MODEL_CANDIDATES if candidate in normalized_runtime_models]
         chosen_model = self._choose_model_name(available_models, preferred_model)
         if chosen_model is None:
+            if chosen_disk_model is not None:
+                return self._build_status(
+                    runtime_status=LocalRuntimeStatus.FAILED,
+                    detail=self._runtime_model_mismatch_detail(model_dir, disk_models),
+                    model_dir=model_dir,
+                    preferred_model=preferred_model,
+                    available_models=disk_models,
+                )
             return self._build_status(
                 runtime_status=LocalRuntimeStatus.MISSING_MODEL,
                 detail=f"当前目录尚未识别到白名单模型，请下载或放入 {' / '.join(LOCAL_MODEL_CANDIDATES)}。",
