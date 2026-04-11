@@ -46,7 +46,7 @@ Windows 下也可以直接使用：
 
 | 路径 | 说明 | 适用情况 |
 | --- | --- | --- |
-| 本地 Ollama | 本机优先，不依赖云端 API | 你已经准备好本地运行时和模型目录 |
+| 本地 Ollama | 本机优先，不依赖云端 API | 你已经准备好 Ollama 嵌入版本体和模型目录 |
 | 火山方舟 Ark | 通过运行时填写 API Key 调用云端 | 想先快速使用，或本地模型未就绪 |
 
 默认云端配置：
@@ -69,29 +69,20 @@ API Key 不写入仓库，运行时通过界面输入。
 
 ## 本地路线说明
 
-仓库默认不提交 `embedded_runtime` 等本地运行时二进制，也不提交模型文件。
+仓库不提交 Ollama 嵌入版本体，也不提交模型文件。
 
 如果你要使用本地路线，需要自行准备：
 
-- 本地嵌入式 Ollama 运行时
+- `ollama-windows-amd64.zip` <https://github.com/ollama/ollama/releases/tag/v0.20.5>
 - 本地模型目录
-
-如果不使用本地路线，可以直接填写火山方舟 API Key 走云端生成。
 
 ### 1. 下载 Ollama 嵌入版
 
-本项目依赖的是 Ollama 的 Windows standalone CLI 包，而不是仓库内自带二进制。
+本项目依赖的是 Ollama 的 Windows standalone CLI 包。
 
 官方入口：
 
-- Ollama Windows 文档：<https://docs.ollama.com/windows>
-- Ollama Windows 下载页：<https://ollama.com/download/windows>
-
-根据官方文档，适合嵌入应用的是 standalone zip，例如：
-
-- `ollama-windows-amd64.zip`
-
-如果你的硬件需要额外 GPU 包，也应按 Ollama 官方文档说明一并放到同一目录。
+- `ollama-windows-amd64.zip` <https://github.com/ollama/ollama/releases/tag/v0.20.5>
 
 ### 2. 解压到项目要求的位置
 
@@ -99,7 +90,7 @@ API Key 不写入仓库，运行时通过界面输入。
 
 `knowledge_graph/embedded_runtime/ollama/ollama.exe`
 
-也就是说，你应该把官方 zip 的完整内容解压到这个目录，而不是只单独复制一个 `ollama.exe`。
+也就是说，你应该把官方 zip 的完整内容解压到这个目录。
 
 推荐解压后的结构类似这样：
 
@@ -144,7 +135,7 @@ python -m knowledge_graph.run_web
 2. 在弹出的目录窗口里选择现有模型目录
 3. 目录里需要能被 Ollama 识别到对应白名单模型
 
-当前代码优先识别这两个本地模型：
+当前项目白名单只有两个模型：
 
 - `qwen3.5:9b`
 - `qwen3.5:4b`
@@ -172,9 +163,9 @@ python -m knowledge_graph.run_web
 
 ## 已知限制
 
-- 当前首发定位为 Windows 本机工具
-- 本地路线依赖你自行准备的本地运行时与模型目录
-- 云端路线需要运行时填写 API Key
+- 当前定位为 Windows 本机工具
+- 本地路线依赖你自行准备的Ollama 嵌入版本体与模型目录
+- 云端路线需要运行时填写火山方舟 API Key
 - 当前不包含 GitHub Actions、自动发布流程和额外工程化包装
 
 ## 仓库清理原则
