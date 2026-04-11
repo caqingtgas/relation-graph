@@ -71,87 +71,95 @@ API Key 不写入仓库，运行时通过界面输入。
 
 仓库默认不提交 `embedded_runtime` 等本地运行时二进制，也不提交模型文件。
 
-如果你要使用本地路线，按下面的顺序准备。
+如果你要使用本地路线，需要自行准备：
 
-### 1. 下载 Ollama 的 Windows 独立包
+- 本地嵌入式 Ollama 运行时
+- 本地模型目录
 
-优先看 Ollama 官方 Windows 文档：
+如果不使用本地路线，可以直接填写火山方舟 API Key 走云端生成。
 
-- https://docs.ollama.com/windows
+### 1. 下载 Ollama 嵌入版
 
-如果你需要用于嵌入式集成的独立包，官方文档指向最新版 Releases：
+本项目依赖的是 Ollama 的 Windows standalone CLI 包，而不是仓库内自带二进制。
 
-- https://github.com/ollama/ollama/releases
+官方入口：
 
-按 Ollama 官方 Windows 文档，独立 CLI 的基础包是：
+- Ollama Windows 文档：<https://docs.ollama.com/windows>
+- Ollama Windows 下载页：<https://ollama.com/download/windows>
+
+根据官方文档，适合嵌入应用的是 standalone zip，例如：
 
 - `ollama-windows-amd64.zip`
 
-如果你的硬件需要额外包，按官方 Windows 文档和 Releases 页面选择并解压到同一目录。
+如果你的硬件需要额外 GPU 包，也应按 Ollama 官方文档说明一并放到同一目录。
 
-### 2. 放到项目期望的位置
+### 2. 解压到项目要求的位置
 
-本项目要求 `ollama.exe` 位于：
+本项目代码固定要求 `ollama.exe` 位于：
 
-```text
-knowledge_graph/embedded_runtime/ollama/ollama.exe
-```
+`knowledge_graph/embedded_runtime/ollama/ollama.exe`
 
-因此做法不是“只复制一个 exe”，而是把 Ollama Windows 独立包完整解压到：
+也就是说，你应该把官方 zip 的完整内容解压到这个目录，而不是只单独复制一个 `ollama.exe`。
 
-```text
-knowledge_graph/embedded_runtime/ollama/
-```
-
-解压完成后，至少应看到类似结构：
+推荐解压后的结构类似这样：
 
 ```text
-knowledge_graph/
-  embedded_runtime/
-    ollama/
-      ollama.exe
-      lib/
+relation-graph/
+  knowledge_graph/
+    embedded_runtime/
+      ollama/
+        ollama.exe
+        lib/
+        ...
 ```
 
-### 3. 启动项目后下载模型
+### 3. 启动项目后如何下载模型
 
-启动项目后：
+启动项目：
 
-1. 保持左侧在“本地”模式
-2. 点击“下载模型并配置目录”
-3. 在弹出的系统目录选择窗口里，选择一个专门存放模型的目录
-   - 例如：`E:\\models`
+```bash
+python -m knowledge_graph.run_web
+```
+
+进入页面后，默认就在“本地”模式。首次使用时按下面顺序操作：
+
+1. 点击 `下载模型并配置目录`
+2. 程序会弹出 Windows 目录选择窗口，标题是“选择模型下载目录”
+3. 选择一个用于保存模型的目录，例如 `E:\models`
 4. 确认后，程序会自动：
-   - 记住这个模型目录
+   - 把该目录保存为本地模型目录
    - 启动嵌入式 Ollama
-   - 打开一个 PowerShell 下载窗口
-   - 依次下载 `qwen3.5:9b` 和 `qwen3.5:4b`
+   - 打开一个 PowerShell 窗口
+   - 在你刚选的目录里依次下载：
+     - `qwen3.5:9b`
+     - `qwen3.5:4b`
+5. 等下载终端完成后，页面状态会刷新
+6. 当页面显示“本地模型已就绪”后，就可以直接用本地模式生成图谱
 
-下载窗口关闭后，页面会自动轮询刷新本地状态。
+### 4. 如果你已经有本地模型
 
-### 4. 如果你已经有模型目录
+如果模型已经提前下载好了，不需要再点“下载模型并配置目录”，而是：
 
-如果你之前已经用 Ollama 下载过模型，不需要重新下载：
+1. 点击 `已有模型并配置目录`
+2. 在弹出的目录窗口里选择现有模型目录
+3. 目录里需要能被 Ollama 识别到对应白名单模型
 
-1. 启动项目
-2. 保持左侧在“本地”模式
-3. 点击“已有模型并配置目录”
-4. 选择已经包含 Ollama 模型清单的目录
-
-当前项目只会识别这两个白名单模型：
+当前代码优先识别这两个本地模型：
 
 - `qwen3.5:9b`
 - `qwen3.5:4b`
 
-### 5. 本地引擎的启动方式
+### 5. 之后如何启动本地引擎
 
-如果目录已经配置好，但状态显示“运行时当前未启动”，可以直接点击：
+如果模型目录已经配置好，但本地引擎当前未启动，页面会出现 `启动本地引擎` 按钮。
 
-- “启动本地引擎”
+点击后，项目会：
 
-项目会在本机启动嵌入式 Ollama，并把模型目录通过 `OLLAMA_MODELS` 指向你刚才选择的目录。
+- 用仓库内的嵌入式 Ollama 启动本地服务
+- 把模型目录绑定到你之前选择的目录
+- 使用独立端口 `127.0.0.1:11435`
 
-如果你暂时不使用本地路线，也可以直接填写火山方舟 API Key 走云端生成。
+这意味着它不会依赖你系统里额外常驻的默认 Ollama 服务。
 
 ## 静态资源说明
 
