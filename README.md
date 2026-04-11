@@ -71,12 +71,87 @@ API Key 不写入仓库，运行时通过界面输入。
 
 仓库默认不提交 `embedded_runtime` 等本地运行时二进制，也不提交模型文件。
 
-如果你要使用本地路线，需要自行准备：
+如果你要使用本地路线，按下面的顺序准备。
 
-- 本地嵌入式 Ollama 运行时
-- 本地模型目录
+### 1. 下载 Ollama 的 Windows 独立包
 
-如果不使用本地路线，可以直接填写火山方舟 API Key 走云端生成。
+优先看 Ollama 官方 Windows 文档：
+
+- https://docs.ollama.com/windows
+
+如果你需要用于嵌入式集成的独立包，官方文档指向最新版 Releases：
+
+- https://github.com/ollama/ollama/releases
+
+按 Ollama 官方 Windows 文档，独立 CLI 的基础包是：
+
+- `ollama-windows-amd64.zip`
+
+如果你的硬件需要额外包，按官方 Windows 文档和 Releases 页面选择并解压到同一目录。
+
+### 2. 放到项目期望的位置
+
+本项目要求 `ollama.exe` 位于：
+
+```text
+knowledge_graph/embedded_runtime/ollama/ollama.exe
+```
+
+因此做法不是“只复制一个 exe”，而是把 Ollama Windows 独立包完整解压到：
+
+```text
+knowledge_graph/embedded_runtime/ollama/
+```
+
+解压完成后，至少应看到类似结构：
+
+```text
+knowledge_graph/
+  embedded_runtime/
+    ollama/
+      ollama.exe
+      lib/
+```
+
+### 3. 启动项目后下载模型
+
+启动项目后：
+
+1. 保持左侧在“本地”模式
+2. 点击“下载模型并配置目录”
+3. 在弹出的系统目录选择窗口里，选择一个专门存放模型的目录
+   - 例如：`E:\\models`
+4. 确认后，程序会自动：
+   - 记住这个模型目录
+   - 启动嵌入式 Ollama
+   - 打开一个 PowerShell 下载窗口
+   - 依次下载 `qwen3.5:9b` 和 `qwen3.5:4b`
+
+下载窗口关闭后，页面会自动轮询刷新本地状态。
+
+### 4. 如果你已经有模型目录
+
+如果你之前已经用 Ollama 下载过模型，不需要重新下载：
+
+1. 启动项目
+2. 保持左侧在“本地”模式
+3. 点击“已有模型并配置目录”
+4. 选择已经包含 Ollama 模型清单的目录
+
+当前项目只会识别这两个白名单模型：
+
+- `qwen3.5:9b`
+- `qwen3.5:4b`
+
+### 5. 本地引擎的启动方式
+
+如果目录已经配置好，但状态显示“运行时当前未启动”，可以直接点击：
+
+- “启动本地引擎”
+
+项目会在本机启动嵌入式 Ollama，并把模型目录通过 `OLLAMA_MODELS` 指向你刚才选择的目录。
+
+如果你暂时不使用本地路线，也可以直接填写火山方舟 API Key 走云端生成。
 
 ## 静态资源说明
 
