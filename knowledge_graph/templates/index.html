@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>知识关系图谱引擎</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <header>
+        <h1>关系图谱引擎</h1>
+        <p class="subtitle">将非结构化文档转化为可视化的知识网络</p>
+      </header>
+
+      <section class="provider-switch">
+        <button id="localModeBtn" class="provider-switch__btn provider-switch__btn--active" type="button">本地</button>
+        <button id="cloudModeBtn" class="provider-switch__btn" type="button">云端</button>
+      </section>
+
+      <section id="localPanel" class="mode-panel">
+        <div class="local-actions">
+          <button id="startLocalRuntimeBtn" class="secondary-btn hidden" type="button">启动本地引擎</button>
+          <button id="downloadModelBtn" class="secondary-btn" type="button">下载模型并配置目录</button>
+          <button id="useExistingModelDirBtn" class="secondary-btn" type="button">已有模型并配置目录</button>
+        </div>
+
+        <section class="provider-panel">
+          <div class="provider-panel__header">
+            <span class="provider-panel__title">本地路线状态</span>
+            <span id="providerModeBadge" class="provider-badge provider-badge--ark">ARK</span>
+          </div>
+          <p id="providerStatusText" class="provider-panel__detail">正在检测本地运行时...</p>
+          <div class="provider-panel__meta">
+            <div>
+              <span class="provider-panel__label">当前模型</span>
+              <span id="localModelName" class="provider-panel__value">未检测到</span>
+            </div>
+            <div>
+              <span class="provider-panel__label">模型目录</span>
+              <span id="localModelDir" class="provider-panel__value">尚未配置</span>
+            </div>
+          </div>
+
+          <label class="label" for="localModelSelect">模型切换</label>
+          <select id="localModelSelect" class="input">
+            <option value="qwen3.5:9b">qwen3.5:9b</option>
+            <option value="qwen3.5:4b">qwen3.5:4b</option>
+          </select>
+          <p class="config-hint">切换的是本地优先模型；如果当前目录尚未识别到对应模型，会自动保持现状。</p>
+        </section>
+      </section>
+
+      <section id="cloudPanel" class="mode-panel hidden">
+        <div class="config-panel">
+          <div class="config-panel__heading">云端接口配置</div>
+          <div class="config-content">
+            <label class="label" for="apiKey">火山方舟 API Key</label>
+            <input id="apiKey" class="input" type="password" placeholder="输入火山方舟接口密钥">
+            <label class="remember-row" for="rememberApiKey">
+              <input id="rememberApiKey" type="checkbox">
+              <span>记住密钥（否则仅保存在当前会话）</span>
+            </label>
+            <p id="apiHint" class="config-hint">云端模式下将直接使用火山方舟。密钥只保存在当前浏览器，不会写入服务器或结果文件。</p>
+
+            <label class="label" for="model">Ark 模型标识</label>
+            <input id="model" class="input" type="text" value="doubao-seed-1-8-251228">
+          </div>
+        </div>
+      </section>
+
+      <div class="upload-section">
+        <label class="label">知识源文件</label>
+        <div id="dropZone" class="drop-zone">
+          <span class="drop-icon">📄</span>
+          <p id="dropText">点击选择或将文件拖拽到此处</p>
+          <p class="drop-hint">支持 .pdf, .txt, .md (可多选)</p>
+          <input id="files" type="file" multiple accept=".pdf,.txt,.md" class="hidden-file-input">
+        </div>
+        <div id="fileSummary" class="file-summary hidden"></div>
+        <ul id="fileList" class="file-list hidden"></ul>
+      </div>
+
+      <button id="generateBtn" class="primary-btn">
+        <span id="btnText">生成知识图谱</span>
+        <div id="btnSpinner" class="spinner hidden"></div>
+      </button>
+
+      <div id="statusBox" class="status hidden"></div>
+
+      <div id="resultPanel" class="result-panel hidden">
+        <h3>生成成功</h3>
+        <div id="resultSummary" class="result-summary"></div>
+        <div class="download-grid">
+          <a id="chunksLink" class="result-link" target="_blank" download>📦 文本分块数据</a>
+          <a id="graphLink" class="result-link" target="_blank" download>🔗 基础关系边</a>
+          <a id="groupedGraphLink" class="result-link" target="_blank" download>🕸️ 聚合关系边</a>
+          <a id="metaLink" class="result-link" target="_blank" download>📝 运行元数据</a>
+        </div>
+        <details class="result-details">
+          <summary>查看详细元数据与失败块</summary>
+          <div id="warningSummary" class="warning-summary hidden"></div>
+          <ul id="warningList" class="warning-list hidden"></ul>
+          <div id="metaInfo" class="meta-info"></div>
+        </details>
+      </div>
+    </aside>
+
+    <main class="viewer">
+      <div class="viewer-header">
+        <span>图谱可视化预览</span>
+        <div class="viewer-actions">
+          <button id="saveGraphBtn" class="icon-btn hidden" title="保存可打开图谱文件">⤓</button>
+          <button id="fullscreenBtn" class="icon-btn hidden" title="在新标签页打开">↗</button>
+        </div>
+      </div>
+      <div class="iframe-container">
+        <div id="iframePlaceholder" class="iframe-placeholder">
+          生成完毕后，此处将展示动态关系图谱
+        </div>
+        <iframe id="graphFrame" title="图谱预览" class="hidden"></iframe>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
