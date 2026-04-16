@@ -10,8 +10,9 @@
 
 - 桌面壳：Electron
 - 前端界面：Vue 3 + Vite + TypeScript
-- 图谱后端：FastAPI 内部服务
+- 图谱引擎：Python 常驻 worker
 - 核心能力：Python pipeline、本地 Ollama 管理、Ark 云端调用
+- 当前桥接语义：结构化请求/响应，renderer 侧对任务与本地 provider 状态使用轻量轮询刷新
 
 ## 快速开发
 
@@ -20,6 +21,14 @@
 ```bash
 pip install -r requirements.txt
 ```
+
+如果你直接运行 `npm run dev`，开发版在首次冷启动时也会自动：
+
+- 创建仓库内 `.venv`
+- 联网安装 `requirements.txt`
+- 再启动 Python worker
+
+也就是说，在最干净的环境下，不需要先手动设置 `RELATION_GRAPH_DEV_PYTHON`。
 
 ### 2. 安装前端依赖
 
@@ -43,8 +52,8 @@ Windows 下也可以直接使用：
 
 - Vite 提供 renderer 页面
 - Electron 启动桌面窗口
-- Electron 主进程会自动启动本机 Python 后端
-- Windows 下默认优先使用仓库内 `.venv`，否则回退到 `py -3`，不再依赖 PATH 中的 `python`
+- Electron 主进程会自动启动本机 Python worker
+- Windows 下默认优先使用仓库内 `.venv`，若首次启动不存在，则会尝试通过 `py -3` 或已发现的本机 Python 自动创建并补齐依赖
 
 ## 打包桌面版
 
@@ -60,7 +69,9 @@ pip install -r requirements-desktop.txt
 set RELATION_GRAPH_PACKAGER_PYTHON=C:\Path\To\python.exe
 ```
 
-桌面后端打包默认只接受标准 CPython `3.9` 到 `3.13`，不会再静默回退到当前终端里的 Conda Python 或任意其它版本。
+桌面 worker 打包默认只接受标准 CPython `3.9` 到 `3.13`，不会再静默回退到当前终端里的 Conda Python 或任意其它版本。
+
+`npm run dist:dir` 现在会先通过一个 Node 启动脚本寻找可用 Python，再进入 `scripts/build_backend.py` 内部的解释器选择逻辑；不再要求系统 PATH 里必须存在 `python` 命令别名。
 
 如果你只是临时验证，确实要放行其它版本，也必须显式设置：
 
@@ -82,7 +93,7 @@ desktop-dist/electron/win-unpacked/
 
 这是首发桌面版的绿色目录，可直接解压使用，不依赖用户额外安装 Python 或 Node。
 
-桌面后端打包会优先选择独立 CPython 解释器，不再默认继承当前调用终端的 Conda Python。
+桌面 worker 打包会优先选择独立 CPython 解释器，不再默认继承当前调用终端的 Conda Python。
 
 ## 支持的生成路径
 
@@ -124,7 +135,7 @@ API Key 运行时通过桌面界面输入。
 嵌入式 Ollama 默认位置：
 
 ```text
-relation_graph/embedded_runtime/ollama/ollama.exe
+embedded_runtime/ollama/ollama.exe
 ```
 
 进入桌面版后，默认就在“本地”模式。首次使用时按下面顺序操作：
@@ -142,6 +153,7 @@ relation_graph/embedded_runtime/ollama/ollama.exe
 1. 点击 `已有模型并配置目录`
 2. 选择现有模型目录
 3. 若状态显示可启动，可再点击 `启动本地引擎`
+4. 如果自动状态仍不对，可点击 `手动启动终端` 直接拉起 `ollama serve` 并查看终端日志
 
 ## 仓库清理原则
 
@@ -168,6 +180,7 @@ relation_graph/embedded_runtime/ollama/ollama.exe
 Python:
 
 ```bash
+pip install -r requirements.txt
 pytest -q
 ```
 

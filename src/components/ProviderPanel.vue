@@ -12,6 +12,7 @@ const props = defineProps<{
   model: string;
   isLoading: boolean;
   canStartLocalRuntime: boolean;
+  canLaunchLocalRuntimeTerminal: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   "update:rememberApiKey": [boolean];
   "update:model": [string];
   startLocalRuntime: [];
+  launchLocalRuntimeTerminal: [];
   downloadAndConfigureModels: [];
   selectExistingModelDir: [];
   changePreferredLocalModel: [];
@@ -64,6 +66,15 @@ const modelOptions = computed(() => getLocalModelOptions(props.providerStatus));
         @click="emit('startLocalRuntime')"
       >
         启动本地引擎
+      </button>
+      <button
+        v-if="canLaunchLocalRuntimeTerminal"
+        class="secondary-btn"
+        type="button"
+        :disabled="isLoading"
+        @click="emit('launchLocalRuntimeTerminal')"
+      >
+        手动启动终端
       </button>
       <button class="secondary-btn" type="button" :disabled="isLoading" @click="emit('downloadAndConfigureModels')">
         下载模型并配置目录

@@ -98,9 +98,7 @@ class JobManager:
             )
             self._jobs[job.job_id] = job
         self._queue.put(job.job_id)
-        payload = self.get_public_job(job.job_id)
-        payload["status_url"] = f"/jobs/{job.job_id}"
-        return payload
+        return self.get_public_job(job.job_id)
 
     def get_public_job(self, job_id: str) -> dict[str, Any]:
         with self._lock:

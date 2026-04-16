@@ -17,7 +17,7 @@ DIST_ROOT = ROOT / "desktop-dist"
 BACKEND_DIST = DIST_ROOT / "backend"
 PYI_BUILD = DIST_ROOT / "pyinstaller-build"
 PYI_SPEC = DIST_ROOT / "pyinstaller-spec"
-BACKEND_NAME = "relation-graph-backend"
+BACKEND_NAME = "relation-graph-worker"
 REQUIREMENT_FILES = (ROOT / "requirements.txt", ROOT / "requirements-desktop.txt")
 INSTALL_REQUIREMENTS_FILE = ROOT / "requirements-desktop.txt"
 DEFAULT_WINDOWS_PYTHON = Path(os.environ.get("LOCALAPPDATA", "")) / "Python" / "bin" / "python.exe"
@@ -275,7 +275,7 @@ def main() -> int:
         str(ROOT),
         "--add-data",
         f"{ROOT / 'relation_graph' / 'graph_assets'};relation_graph/graph_assets",
-        str(ROOT / "relation_graph" / "run_desktop_backend.py"),
+        str(ROOT / "relation_graph" / "run_desktop_worker.py"),
     ]
     for module_name in PYINSTALLER_EXCLUDES:
         command.extend(["--exclude-module", module_name])

@@ -12,7 +12,6 @@ from pathlib import Path
 
 from relation_graph.ollama_client import OllamaClient, OllamaClientConfig, OllamaClientError
 from relation_graph.settings import (
-    EMBEDDED_OLLAMA_EXE,
     LOCAL_CONTEXT_LENGTH,
     LOCAL_FALLBACK_MODEL_ID,
     LOCAL_MODEL_CANDIDATES,
@@ -22,6 +21,7 @@ from relation_graph.settings import (
     LOCAL_OLLAMA_START_TIMEOUT_SECONDS,
     LOCAL_PRIMARY_MODEL_ID,
     LOCAL_PROVIDER_CONFIG_PATH,
+    resolve_embedded_ollama_exe,
 )
 
 
@@ -196,6 +196,7 @@ class EmbeddedOllamaRuntime:
                 process.kill()
 
     def ensure_started(self, model_dir: Path) -> str | None:
+        embedded_ollama_exe = resolve_embedded_ollama_exe()
         if self._process is not None and self._process.poll() is not None:
             self._process = None
             self._active_model_dir = None
@@ -224,8 +225,8 @@ class EmbeddedOllamaRuntime:
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self._process = subprocess.Popen(
-            [str(EMBEDDED_OLLAMA_EXE), "serve"],
-            cwd=str(EMBEDDED_OLLAMA_EXE.parent),
+            [str(embedded_ollama_exe), "serve"],
+            cwd=str(embedded_ollama_exe.parent),
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -364,15 +365,33 @@ $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
     def quote_ps(value: str) -> str:
         return value.replace("'", "''")
 
-    def launch_download_terminal(self, model_dir: Path) -> None:
+    def _base_terminal_script(self, model_dir: Path) -> tuple[Path, str]:
+        embedded_ollama_exe = resolve_embedded_ollama_exe()
         model_dir_text = self.quote_ps(str(model_dir))
-        runtime_dir_text = self.quote_ps(str(EMBEDDED_OLLAMA_EXE.parent))
+        runtime_dir_text = self.quote_ps(str(embedded_ollama_exe.parent))
         host_text = self.quote_ps(f"{LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT}")
         script = f"""
 $env:OLLAMA_MODELS = '{model_dir_text}'
 $env:OLLAMA_HOST = '{host_text}'
 $env:OLLAMA_CONTEXT_LENGTH = '{LOCAL_CONTEXT_LENGTH}'
+$env:OLLAMA_KEEP_ALIVE = '30m'
 Set-Location '{runtime_dir_text}'
+"""
+        return embedded_ollama_exe.parent, script
+
+    @staticmethod
+    def _launch_powershell_terminal(runtime_dir: Path, script: str) -> None:
+        creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        subprocess.Popen(
+            ["powershell", "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", script],
+            cwd=str(runtime_dir),
+            creationflags=creationflags,
+        )
+
+    def launch_download_terminal(self, model_dir: Path) -> None:
+        runtime_dir, base_script = self._base_terminal_script(model_dir)
+        model_dir_text = self.quote_ps(str(model_dir))
+        script = base_script + f"""
 Write-Host '模型下载目录: {model_dir_text}'
 Write-Host '将依次下载: {LOCAL_PRIMARY_MODEL_ID}, {LOCAL_FALLBACK_MODEL_ID}'
 & .\\ollama.exe pull {LOCAL_PRIMARY_MODEL_ID}
@@ -393,12 +412,25 @@ Write-Host ''
 Write-Host '模型下载完成，可以回到项目页面继续使用。'
 Read-Host '按回车关闭窗口'
 """
-        creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-        subprocess.Popen(
-            ["powershell", "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", script],
-            cwd=str(EMBEDDED_OLLAMA_EXE.parent),
-            creationflags=creationflags,
-        )
+        self._launch_powershell_terminal(runtime_dir, script)
+
+    def launch_runtime_terminal(self, model_dir: Path) -> None:
+        runtime_dir, base_script = self._base_terminal_script(model_dir)
+        model_dir_text = self.quote_ps(str(model_dir))
+        host_text = self.quote_ps(f"{LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT}")
+        runtime_dir_text = self.quote_ps(str(runtime_dir))
+        script = base_script + f"""
+Write-Host '正在手动启动本地引擎...'
+Write-Host 'Ollama目录: {runtime_dir_text}'
+Write-Host '模型目录: {model_dir_text}'
+Write-Host '监听地址: {host_text}'
+Write-Host ''
+& .\\ollama.exe serve
+Write-Host ''
+Write-Host '本地引擎终端已退出。'
+Read-Host '按回车关闭窗口'
+"""
+        self._launch_powershell_terminal(runtime_dir, script)
 
 
 class LocalProviderManager:
@@ -446,8 +478,9 @@ class LocalProviderManager:
     def download_models_and_configure(self, model_dir: str | Path) -> dict[str, object]:
         if os.name != "nt":
             raise RuntimeError("下载模型并配置目录仅在 Windows 首发版本中提供。")
-        if not EMBEDDED_OLLAMA_EXE.exists():
-            raise RuntimeError(f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {EMBEDDED_OLLAMA_EXE.parent}。")
+        embedded_ollama_exe = resolve_embedded_ollama_exe()
+        if not embedded_ollama_exe.exists():
+            raise RuntimeError(f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {embedded_ollama_exe.parent}。")
 
         path = self._normalize_model_dir(model_dir)
         path.mkdir(parents=True, exist_ok=True)
@@ -480,6 +513,26 @@ class LocalProviderManager:
             if start_error:
                 raise RuntimeError(start_error)
             return self._get_public_status_locked(auto_start=False).to_dict()
+
+    def launch_runtime_terminal(self) -> dict[str, object]:
+        embedded_ollama_exe = resolve_embedded_ollama_exe()
+        if not embedded_ollama_exe.exists():
+            raise RuntimeError(f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {embedded_ollama_exe.parent}。")
+        model_dir = self._config_store.load_model_dir()
+        if model_dir is None:
+            raise RuntimeError("尚未配置本地模型目录，请先下载模型并配置目录，或绑定已有模型目录。")
+        if not model_dir.exists() or not model_dir.is_dir():
+            raise RuntimeError("已保存的本地模型目录不存在，请重新配置目录。")
+
+        with self._lock:
+            self._runtime.launch_runtime_terminal(model_dir)
+
+        status = self.get_public_status(auto_start=False)
+        status["detail"] = (
+            f"已打开本地引擎终端，正在尝试以 {model_dir} 作为模型目录启动 Ollama。"
+            " 如终端里出现缺库、端口占用或模型目录错误，可直接按终端提示排查。"
+        )
+        return status
 
     def set_preferred_model(self, model_name: str) -> dict[str, object]:
         normalized = (model_name or "").strip()
@@ -537,10 +590,11 @@ class LocalProviderManager:
                 available_models=[],
             )
 
-        if not EMBEDDED_OLLAMA_EXE.exists():
+        embedded_ollama_exe = resolve_embedded_ollama_exe()
+        if not embedded_ollama_exe.exists():
             return self._build_status(
                 runtime_status=LocalRuntimeStatus.NOT_CONFIGURED,
-                detail=f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {EMBEDDED_OLLAMA_EXE.parent}。",
+                detail=f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {embedded_ollama_exe.parent}。",
                 model_dir=self._config_store.load_model_dir(),
                 preferred_model=preferred_model,
                 available_models=[],

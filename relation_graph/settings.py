@@ -8,7 +8,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = Path(os.environ.get("RELATION_GRAPH_PROJECT_ROOT") or PACKAGE_DIR.parent)
 GRAPH_ASSETS_DIR = PACKAGE_DIR / "graph_assets"
 RUNS_DIR = PROJECT_ROOT / "data_output" / "ui_runs"
-EMBEDDED_RUNTIME_DIR = PACKAGE_DIR / "embedded_runtime"
+EMBEDDED_RUNTIME_DIR = PROJECT_ROOT / "embedded_runtime"
 EMBEDDED_OLLAMA_DIR = EMBEDDED_RUNTIME_DIR / "ollama"
 EMBEDDED_OLLAMA_EXE = EMBEDDED_OLLAMA_DIR / "ollama.exe"
 RUNTIME_STATE_DIR = PROJECT_ROOT / "runtime_state"
@@ -46,3 +46,16 @@ MAX_COMPLETED_JOB_RECORDS = 50
 
 UPLOAD_TEMP_PREFIX = "kg-ui-"
 RUN_TEMP_PREFIX = ".tmp-kg-run-"
+
+
+def resolve_embedded_ollama_exe() -> Path:
+    candidates = (
+        EMBEDDED_OLLAMA_EXE,
+        EMBEDDED_RUNTIME_DIR / "ollama.exe",
+        EMBEDDED_RUNTIME_DIR / "ollama-windows-amd64" / "ollama.exe",
+        EMBEDDED_OLLAMA_DIR / "ollama-windows-amd64" / "ollama.exe",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return EMBEDDED_OLLAMA_EXE

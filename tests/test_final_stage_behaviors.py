@@ -3,9 +3,6 @@
 from concurrent.futures import Future
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from relation_graph import desktop_api
 from relation_graph.pipeline.chunking import split_text
 from relation_graph.pipeline.document_loader import _clean_pdf_text
 from relation_graph.pipeline.artifact_store import cleanup_stale_runtime_files, write_pipeline_result
@@ -232,53 +229,5 @@ def test_ensure_runtime_assets_validates_repo_assets_only(tmp_path: Path, monkey
     monkeypatch.setattr(runtime_assets, "GRAPH_ASSETS_DIR", graph_assets_dir)
 
     runtime_assets.ensure_runtime_assets()
-
-
-def test_provider_status_endpoint_is_read_only(monkeypatch):
-    captured = {}
-
-    def fake_status(*, auto_start=False):
-        captured["auto_start"] = auto_start
-        return {
-            "provider_mode": "ark",
-            "local_runtime_status": "stopped",
-            "local_model_name": None,
-            "local_model_dir": "models",
-            "detail": "stopped",
-            "preferred_local_model": "qwen3.5:9b",
-            "available_local_models": ["qwen3.5:9b"],
-            "local_model_candidates": ["qwen3.5:9b", "qwen3.5:4b"],
-        }
-
-    monkeypatch.setattr(desktop_api.local_provider_manager, "get_public_status", fake_status)
-
-    client = TestClient(desktop_api.app)
-    response = client.get("/provider/status")
-
-    assert response.status_code == 200
-    assert captured["auto_start"] is False
-
-
-def test_ensure_started_endpoint_routes_to_manager(monkeypatch):
-    monkeypatch.setattr(
-        desktop_api.local_provider_manager,
-        "ensure_started",
-        lambda: {
-            "provider_mode": "local",
-            "local_runtime_status": "ready",
-            "local_model_name": "qwen3.5:9b",
-            "local_model_dir": "models",
-            "detail": "ready",
-            "preferred_local_model": "qwen3.5:9b",
-            "available_local_models": ["qwen3.5:9b"],
-            "local_model_candidates": ["qwen3.5:9b", "qwen3.5:4b"],
-        },
-    )
-
-    client = TestClient(desktop_api.app)
-    response = client.post("/provider/ensure-started")
-
-    assert response.status_code == 200
-    assert response.json()["local_runtime_status"] == "ready"
 
 

@@ -1,15 +1,29 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, protocol, shell, net } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { BackendClient } = require("./backend-client.js");
+const { PythonWorkerClient } = require("./python-worker-client.js");
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "relation-graph-preview",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true
+    }
+  }
+]);
+
+const DEFAULT_DEV_SERVER_URL = "http://127.0.0.1:5173";
 const projectRoot = app.isPackaged ? path.dirname(process.execPath) : app.getAppPath();
-const backend = new BackendClient({
+const workerClient = new PythonWorkerClient({
   projectRoot,
   isPackaged: app.isPackaged
 });
-let backendStartupError = null;
+let workerStartupError = null;
 
 function mapProviderStatus(payload) {
   return {
@@ -85,9 +99,32 @@ function mapJobPayload(payload) {
     currentStage: payload.current_stage,
     detail: payload.detail,
     queuePosition: payload.queue_position,
-    statusUrl: payload.status_url,
     result: mapJobResult(payload.result)
   };
+}
+
+function resolveRendererTarget() {
+  if (app.isPackaged) {
+    return {
+      type: "file",
+      value: path.join(app.getAppPath(), "dist", "index.html")
+    };
+  }
+  return {
+    type: "url",
+    value: process.env.VITE_DEV_SERVER_URL || DEFAULT_DEV_SERVER_URL
+  };
+}
+
+async function registerPreviewProtocol() {
+  protocol.handle("relation-graph-preview", (request) => {
+    const url = new URL(request.url);
+    const targetPath = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    if (!targetPath) {
+      return new Response("Missing preview path", { status: 400 });
+    }
+    return net.fetch(pathToFileURL(targetPath).toString());
+  });
 }
 
 function createWindow() {
@@ -105,19 +142,20 @@ function createWindow() {
     }
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    window.loadURL(process.env.VITE_DEV_SERVER_URL);
+  const rendererTarget = resolveRendererTarget();
+  if (rendererTarget.type === "url") {
+    window.loadURL(rendererTarget.value);
   } else {
-    window.loadFile(path.join(app.getAppPath(), "dist", "index.html"));
+    window.loadFile(rendererTarget.value);
   }
 }
 
 function registerIpcHandlers() {
   ipcMain.handle("relation-graph:getProviderStatus", async () => {
-    if (backendStartupError) {
-      throw new Error(backendStartupError);
+    if (workerStartupError) {
+      throw new Error(workerStartupError);
     }
-    return mapProviderStatus(await backend.invoke("provider.status"));
+    return mapProviderStatus(await workerClient.invoke("provider.getStatus"));
   });
   ipcMain.handle("relation-graph:pickInputFiles", async () => {
     const result = await dialog.showOpenDialog({
@@ -141,21 +179,24 @@ function registerIpcHandlers() {
     if (result.canceled || result.filePaths.length === 0) {
       throw new Error("未选择目录。");
     }
-    return mapProviderStatus(await backend.invoke("provider.bind_model_dir", { model_dir: result.filePaths[0] }));
+    return mapProviderStatus(await workerClient.invoke("provider.bindModelDir", { model_dir: result.filePaths[0] }));
   });
   ipcMain.handle("relation-graph:downloadAndConfigureModels", async () => {
     const result = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || result.filePaths.length === 0) {
       throw new Error("未选择目录。");
     }
-    return mapProviderStatus(await backend.invoke("provider.download_models", { model_dir: result.filePaths[0] }));
+    return mapProviderStatus(await workerClient.invoke("provider.downloadModels", { model_dir: result.filePaths[0] }));
   });
-  ipcMain.handle("relation-graph:ensureLocalRuntimeStarted", async () => mapProviderStatus(await backend.invoke("provider.ensure_started")));
-  ipcMain.handle("relation-graph:setPreferredLocalModel", (_, modelName) =>
-    backend.invoke("provider.set_preferred_model", { model_name: modelName }).then(mapProviderStatus)
+  ipcMain.handle("relation-graph:ensureLocalRuntimeStarted", async () => mapProviderStatus(await workerClient.invoke("provider.ensureStarted")));
+  ipcMain.handle("relation-graph:launchLocalRuntimeTerminal", async () =>
+    mapProviderStatus(await workerClient.invoke("provider.launchRuntimeTerminal"))
   );
-  ipcMain.handle("relation-graph:submitJob", async (_, payload) => mapJobPayload(await backend.invoke("job.submit", payload)));
-  ipcMain.handle("relation-graph:getJobStatus", async (_, jobId) => mapJobPayload(await backend.invoke("job.status", { job_id: jobId })));
+  ipcMain.handle("relation-graph:setPreferredLocalModel", (_, modelName) =>
+    workerClient.invoke("provider.setPreferredModel", { model_name: modelName }).then(mapProviderStatus)
+  );
+  ipcMain.handle("relation-graph:submitJob", async (_, payload) => mapJobPayload(await workerClient.invoke("job.submit", payload)));
+  ipcMain.handle("relation-graph:getJobStatus", async (_, jobId) => mapJobPayload(await workerClient.invoke("job.getStatus", { job_id: jobId })));
   ipcMain.handle("relation-graph:openRunArtifact", async (_, targetPath) => {
     const errorMessage = await shell.openPath(targetPath);
     if (errorMessage) {
@@ -179,20 +220,24 @@ function registerIpcHandlers() {
     return finalPath;
   });
   ipcMain.handle("relation-graph:fileUrl", (_, filePath) => pathToFileURL(filePath).toString());
-  ipcMain.handle("relation-graph:shutdownBackend", () => backend.stop());
+  ipcMain.handle("relation-graph:previewUrl", (_, filePath) => {
+    const previewUrl = new URL("relation-graph-preview://local/");
+    const normalizedPath = String(filePath || "").replace(/\\/g, "/");
+    previewUrl.pathname = `/${normalizedPath.split("/").map(encodeURIComponent).join("/")}`;
+    return previewUrl.toString();
+  });
+  ipcMain.handle("relation-graph:shutdownDesktopWorker", () => workerClient.stop());
 }
 
 app.whenReady().then(async () => {
-  if (!process.env.VITE_DEV_SERVER_URL) {
-    process.env.VITE_DEV_SERVER_URL = "";
-  }
+  await registerPreviewProtocol();
   registerIpcHandlers();
   try {
-    await backend.start();
-    backendStartupError = null;
+    await workerClient.start();
+    workerStartupError = null;
   } catch (error) {
-    backendStartupError = `Python backend 启动失败：${error.message}`;
-    console.error("Failed to start Python backend", error);
+    workerStartupError = `Python worker 启动失败：${error.message}`;
+    console.error("Failed to start Python worker", error);
   }
   createWindow();
   app.on("activate", () => {
@@ -203,7 +248,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", async () => {
-  await backend.stop();
+  await workerClient.stop();
   if (process.platform !== "darwin") {
     app.quit();
   }

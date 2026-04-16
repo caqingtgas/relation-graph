@@ -80,7 +80,6 @@ export interface JobPayload {
   currentStage: string;
   detail: string;
   queuePosition?: number | null;
-  statusUrl?: string | null;
   result?: JobResult | null;
 }
 
@@ -90,6 +89,7 @@ export interface RelationGraphApi {
   selectExistingModelDir(): Promise<ProviderStatus>;
   downloadAndConfigureModels(): Promise<ProviderStatus>;
   ensureLocalRuntimeStarted(): Promise<ProviderStatus>;
+  launchLocalRuntimeTerminal(): Promise<ProviderStatus>;
   setPreferredLocalModel(modelName: string): Promise<ProviderStatus>;
   submitJob(payload: {
     api_key: string;
@@ -100,8 +100,9 @@ export interface RelationGraphApi {
   getJobStatus(jobId: string): Promise<JobPayload>;
   openRunArtifact(targetPath: string): Promise<string>;
   exportStandaloneGraph(sourcePath: string, destinationPath?: string): Promise<string>;
+  toPreviewUrl(filePath: string): Promise<string>;
   toFileUrl(filePath: string): Promise<string>;
-  shutdownBackend(): Promise<void>;
+  shutdownDesktopWorker(): Promise<void>;
 }
 
 declare global {

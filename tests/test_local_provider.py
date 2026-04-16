@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 
 from relation_graph import local_provider
+from relation_graph import settings as relation_graph_settings
+
+
+def _patch_embedded_ollama(monkeypatch, embedded_exe: Path):
+    monkeypatch.setattr(local_provider, "resolve_embedded_ollama_exe", lambda: embedded_exe)
 
 
 def test_choose_generation_target_prefers_local_ready():
@@ -137,7 +142,7 @@ def test_resolve_for_generation_attempts_start_when_local_failed(monkeypatch):
 def test_local_provider_status_not_configured_without_embedded_runtime(tmp_path: Path, monkeypatch):
     config_path = tmp_path / "local_provider.json"
     monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
-    monkeypatch.setattr(local_provider, "EMBEDDED_OLLAMA_EXE", tmp_path / "missing" / "ollama.exe")
+    _patch_embedded_ollama(monkeypatch, tmp_path / "missing" / "ollama.exe")
 
     manager = local_provider.LocalProviderManager()
     status = manager.get_public_status(auto_start=False)
@@ -158,7 +163,7 @@ def test_local_provider_status_missing_model_when_whitelist_not_found(tmp_path: 
     config_path = tmp_path / "local_provider.json"
     config_path.write_text(json.dumps({"model_dir": str(model_dir)}, ensure_ascii=False), encoding="utf-8")
 
-    monkeypatch.setattr(local_provider, "EMBEDDED_OLLAMA_EXE", embedded_exe)
+    _patch_embedded_ollama(monkeypatch, embedded_exe)
     monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
     monkeypatch.setattr(local_provider.LocalProviderManager, "_ensure_runtime_started_locked", lambda self, path: None)
     monkeypatch.setattr(local_provider.LocalProviderManager, "_list_model_names_locked", lambda self: ["other-model:1b"])
@@ -182,7 +187,7 @@ def test_local_provider_status_ready_prefers_primary_model(tmp_path: Path, monke
     config_path = tmp_path / "local_provider.json"
     config_path.write_text(json.dumps({"model_dir": str(model_dir)}, ensure_ascii=False), encoding="utf-8")
 
-    monkeypatch.setattr(local_provider, "EMBEDDED_OLLAMA_EXE", embedded_exe)
+    _patch_embedded_ollama(monkeypatch, embedded_exe)
     monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
     monkeypatch.setattr(local_provider.LocalProviderManager, "_ensure_runtime_started_locked", lambda self, path: None)
     monkeypatch.setattr(
@@ -212,7 +217,7 @@ def test_local_provider_status_stopped_when_models_exist_on_disk(tmp_path: Path,
     config_path = tmp_path / "local_provider.json"
     config_path.write_text(json.dumps({"model_dir": str(model_dir)}, ensure_ascii=False), encoding="utf-8")
 
-    monkeypatch.setattr(local_provider, "EMBEDDED_OLLAMA_EXE", embedded_exe)
+    _patch_embedded_ollama(monkeypatch, embedded_exe)
     monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
     monkeypatch.setattr(local_provider.LocalProviderManager, "_list_model_names_locked", lambda self: (_ for _ in ()).throw(local_provider.OllamaClientError("offline")))
     monkeypatch.setattr(local_provider.LocalProviderManager, "_is_port_open", lambda self: False)
@@ -236,7 +241,7 @@ def test_local_provider_status_reports_runtime_model_mismatch_when_disk_models_e
     config_path = tmp_path / "local_provider.json"
     config_path.write_text(json.dumps({"model_dir": str(model_dir)}, ensure_ascii=False), encoding="utf-8")
 
-    monkeypatch.setattr(local_provider, "EMBEDDED_OLLAMA_EXE", embedded_exe)
+    _patch_embedded_ollama(monkeypatch, embedded_exe)
     monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
     monkeypatch.setattr(local_provider.EmbeddedOllamaRuntime, "is_ready", lambda self: True)
     monkeypatch.setattr(local_provider.LocalProviderManager, "_list_model_names_locked", lambda self: [])
@@ -247,6 +252,30 @@ def test_local_provider_status_reports_runtime_model_mismatch_when_disk_models_e
     assert status["local_runtime_status"] == "failed"
     assert "未暴露这些模型" in str(status["detail"])
     assert status["available_local_models"] == ["qwen3.5:9b"]
+
+
+def test_resolve_embedded_ollama_exe_accepts_nested_runtime_dir(tmp_path: Path, monkeypatch):
+    nested_exe = tmp_path / "embedded_runtime" / "ollama-windows-amd64" / "ollama.exe"
+    nested_exe.parent.mkdir(parents=True)
+    nested_exe.write_text("placeholder", encoding="utf-8")
+
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_RUNTIME_DIR", tmp_path / "embedded_runtime")
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_OLLAMA_DIR", tmp_path / "embedded_runtime" / "ollama")
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_OLLAMA_EXE", tmp_path / "embedded_runtime" / "ollama" / "ollama.exe")
+
+    assert relation_graph_settings.resolve_embedded_ollama_exe() == nested_exe
+
+
+def test_resolve_embedded_ollama_exe_prefers_project_root_runtime_dir(tmp_path: Path, monkeypatch):
+    project_runtime_exe = tmp_path / "embedded_runtime" / "ollama" / "ollama.exe"
+    project_runtime_exe.parent.mkdir(parents=True)
+    project_runtime_exe.write_text("placeholder", encoding="utf-8")
+
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_RUNTIME_DIR", tmp_path / "embedded_runtime")
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_OLLAMA_DIR", tmp_path / "embedded_runtime" / "ollama")
+    monkeypatch.setattr(relation_graph_settings, "EMBEDDED_OLLAMA_EXE", tmp_path / "embedded_runtime" / "ollama" / "ollama.exe")
+
+    assert relation_graph_settings.resolve_embedded_ollama_exe() == project_runtime_exe
 
 
 def test_ensure_started_allows_restart_from_failed_status(monkeypatch):

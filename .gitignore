@@ -6,6 +6,7 @@ __pycache__/
 # Runtime state
 runtime_state/
 data_output/
+embedded_runtime/
 relation_graph/embedded_runtime/
 desktop-dist/
 dist/
