@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关系图谱</title>
+  __VIS_NETWORK_CSS__
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f8fafc;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+
+    #graph-network {
+      width: 100%;
+      height: 100vh;
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(241, 245, 249, 0.98) 100%);
+    }
+
+    .vis-tooltip {
+      max-width: 320px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      white-space: pre-line;
+      line-height: 1.5;
+    }
+
+    .graph-zoom-panel {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 260px;
+      padding: 12px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      backdrop-filter: blur(10px);
+    }
+
+    .graph-zoom-panel__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #1d2736;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .graph-zoom-panel__hint {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .graph-zoom-panel__meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .graph-zoom-rail {
+      position: relative;
+      height: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    .graph-zoom-rail::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 6px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 100%);
+    }
+
+    .graph-zoom-range {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      margin: 0;
+      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      pointer-events: auto;
+    }
+
+    .graph-zoom-range:focus {
+      outline: none;
+    }
+
+    .graph-zoom-range::-webkit-slider-runnable-track {
+      height: 6px;
+      background: transparent;
+    }
+
+    .graph-zoom-range::-moz-range-track {
+      height: 6px;
+      background: transparent;
+      border: none;
+    }
+
+    .graph-zoom-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      margin-top: -6px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+    }
+
+    .graph-zoom-range::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+    }
+
+    #graph-zoom-slider::-webkit-slider-thumb {
+      background: #1f66d1;
+    }
+
+    #graph-zoom-slider::-moz-range-thumb {
+      background: #1f66d1;
+    }
+
+    #graph-threshold-slider::-webkit-slider-thumb {
+      background: #e11d48;
+      width: 14px;
+      height: 24px;
+      margin-top: -9px;
+      border-radius: 999px;
+    }
+
+    #graph-threshold-slider::-moz-range-thumb {
+      background: #e11d48;
+      width: 14px;
+      height: 24px;
+      border-radius: 999px;
+    }
+
+    .graph-threshold-tag {
+      position: absolute;
+      top: -2px;
+      transform: translateX(-50%);
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #e11d48;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .graph-fit-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1f66d1;
+      background: #eff6ff;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="graph-network"></div>
+  <div class="graph-zoom-panel" id="graph-zoom-panel">
+    <div class="graph-zoom-panel__row">
+      <span>缩放比例</span>
+      <div class="graph-zoom-panel__meta">
+        <span id="graph-zoom-value">--</span>
+        <button class="graph-fit-btn" id="graph-fit-btn" type="button">适应视图</button>
+      </div>
+    </div>
+    <div class="graph-zoom-rail">
+      <div class="graph-threshold-tag" id="graph-threshold-tag">临界 --</div>
+      <input class="graph-zoom-range" id="graph-zoom-slider" type="range" min="0.4" max="3" step="0.01" value="1">
+      <input class="graph-zoom-range" id="graph-threshold-slider" type="range" min="0.4" max="3" step="0.01" value="1.6">
+    </div>
+    <div class="graph-zoom-panel__meta">
+      <span>边关系显示临界</span>
+      <span id="graph-threshold-value">--</span>
+    </div>
+    <div class="graph-zoom-panel__hint">蓝色控制缩放，红色控制边标签显示阈值。</div>
+  </div>
+  __GRAPH_DATA_SCRIPT__
+  <script>
+    window.KG_GRAPH_OPTIONS = __GRAPH_OPTIONS__;
+  </script>
+  __VIS_NETWORK_JS__
+  <script>
+__GRAPH_VIEWER_RUNTIME__
+  </script>
+</body>
+</html>

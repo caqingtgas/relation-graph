@@ -1,0 +1,61 @@
+{
+  "name": "relation-graph-desktop",
+  "version": "1.0.4",
+  "private": true,
+  "description": "RelationGraph Windows desktop app built with Vue and Electron.",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "test": "vitest run",
+    "build": "npm run build:renderer",
+    "build:renderer": "vite build",
+    "build:backend": "python scripts/build_backend.py",
+    "dist:dir": "npm run build:backend && npm run build:renderer && electron-builder --dir",
+    "dist": "npm run dist:dir"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "concurrently": "^9.1.2",
+    "electron": "^37.2.1",
+    "electron-builder": "^26.0.12",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.relationgraph.desktop",
+    "productName": "RelationGraph",
+    "asar": true,
+    "directories": {
+      "output": "desktop-dist/electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop-dist/backend/relation-graph-backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}

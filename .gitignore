@@ -1,0 +1,40 @@
+﻿# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime state
+runtime_state/
+data_output/
+relation_graph/embedded_runtime/
+desktop-dist/
+dist/
+node_modules/
+.build-tools/
+
+# Local environments and model assets
+.venv/
+venv/
+env/
+ENV/
+.python-version
+models/
+*.gguf
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+Thumbs.db
+Desktop.ini
+
+# Local notes and analysis artifacts
+备忘.txt
+PLAN.md
+来源*.txt
+分析*.txt
+验证*.txt
+validation_assets/
+tools/
+
