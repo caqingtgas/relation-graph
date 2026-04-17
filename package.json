@@ -1,6 +1,6 @@
 {
   "name": "relation-graph-desktop",
-  "version": "1.0.4",
+  "version": "2.0.0",
   "private": true,
   "description": "RelationGraph Windows desktop app built with Vue and Electron.",
   "main": "electron/main.js",
@@ -47,15 +47,6 @@
       {
         "from": "desktop-dist/backend/relation-graph-worker",
         "to": "backend",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "extraFiles": [
-      {
-        "from": "embedded_runtime",
-        "to": "embedded_runtime",
         "filter": [
           "**/*"
         ]

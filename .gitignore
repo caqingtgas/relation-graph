@@ -27,6 +27,7 @@ models/
 *.tmp
 *.temp
 *.bak
+relation-graph-*.zip
 Thumbs.db
 Desktop.ini
 

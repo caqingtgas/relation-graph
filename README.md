@@ -23,7 +23,7 @@ RelationGraph 是一个面向 Windows 的本地图谱工具。你可以把说明
 
 | 路线 | 说明 | 适合谁 |
 | --- | --- | --- |
-| 本地 Ollama | 本机优先，不依赖云端 API | 希望尽量本地化使用，能接受首次准备本地模型 |
+| 本地 Ollama | 本机优先，不依赖云端 API，需要你自行准备 Ollama 运行时和模型 | 希望尽量本地化使用，能接受首次准备本地模型 |
 | 火山方舟 Ark | 运行时输入 API Key 调用云端 | 想快速开始，或本地模型暂未准备好 |
 
 默认云端配置：
@@ -46,10 +46,11 @@ RelationGraph 是一个面向 Windows 的本地图谱工具。你可以把说明
 
 ### 方式二：先准备本地模型再使用
 
+0. 先下载 Ollama Windows 压缩包，并解压到程序目录下的 `embedded_runtime/ollama/`
 1. 启动桌面版，保持在 `本地`
 2. 点击 `下载模型并配置目录`
 3. 选择一个模型下载目录
-4. 程序会启动嵌入式 Ollama，并打开 PowerShell 下载窗口
+4. 程序会调用你准备好的本地 Ollama，并打开 PowerShell 下载窗口
 5. 默认会下载：
    - `qwen3.5:9b`
    - `qwen3.5:4b`
@@ -58,6 +59,7 @@ RelationGraph 是一个面向 Windows 的本地图谱工具。你可以把说明
 
 ### 方式三：你已经有本地模型
 
+0. 先下载 Ollama Windows 压缩包，并解压到程序目录下的 `embedded_runtime/ollama/`
 1. 启动桌面版，保持在 `本地`
 2. 点击 `已有模型并配置目录`
 3. 选择已有模型所在目录
@@ -132,17 +134,23 @@ desktop-dist/electron/win-unpacked/
 
 ## 本地路线准备说明
 
-源码仓库默认不提交 Ollama 嵌入版本体，也不提交模型文件。
+源码仓库和分发版都不内置 Ollama，也不提交模型文件。
 
 如果你要使用本地路线，需要自行准备：
 
 - `ollama-windows-amd64.zip` <https://github.com/ollama/ollama/releases/tag/v0.20.5>
 - 本地模型目录
 
-嵌入式 Ollama 默认位置：
+下载后请把 `ollama.exe` 解压到程序目录下的默认位置：
 
 ```text
 embedded_runtime/ollama/ollama.exe
+```
+
+如果你运行的是打包后的绿色目录，这个位置就是：
+
+```text
+win-unpacked/embedded_runtime/ollama/ollama.exe
 ```
 
 ## 平台范围
