@@ -27,6 +27,11 @@ models/
 *.tmp
 *.temp
 *.bak
+.coverage
+coverage/
+htmlcov/
+coverage-final.json
+*.tsbuildinfo
 relation-graph-*.zip
 Thumbs.db
 Desktop.ini

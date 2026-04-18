@@ -8,13 +8,16 @@ if errorlevel 1 (
   goto :fail
 )
 
-if not exist "node_modules\.bin\concurrently.cmd" (
-  echo [RelationGraph] Installing frontend dependencies...
-  call npm.cmd install
-  if errorlevel 1 (
-    echo [RelationGraph] npm install failed.
-    goto :fail
-  )
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [RelationGraph] Node.js was not found.
+  goto :fail
+)
+
+call node scripts\ensure_frontend_deps.js
+if errorlevel 1 (
+  echo [RelationGraph] Frontend dependency bootstrap failed.
+  goto :fail
 )
 
 echo [RelationGraph] Starting desktop dev mode...

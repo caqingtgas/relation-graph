@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import FileUploadPanel from "./components/FileUploadPanel.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
@@ -25,6 +25,33 @@ const {
   statusType
 } = storeToRefs(relationGraphStore);
 
+const providerModeLabel = computed(() => (selectedProvider.value === "local" ? "本地路线" : "云端路线"));
+const fileSummaryLabel = computed(() => {
+  const count = selectedFiles.value.length;
+  if (count === 0) {
+    return "尚未选择文件";
+  }
+  return `${count} 个文件已就绪`;
+});
+const workflowStateLabel = computed(() => {
+  if (currentResult.value) {
+    return "结果已生成";
+  }
+  if (isLoading.value) {
+    return "生成中";
+  }
+  return "待启动";
+});
+const workflowStateClass = computed(() => {
+  if (currentResult.value) {
+    return "state-chip--success";
+  }
+  if (isLoading.value) {
+    return "state-chip--busy";
+  }
+  return "state-chip--neutral";
+});
+
 onMounted(async () => {
   await relationGraphStore.initialize();
 });
@@ -37,9 +64,17 @@ onBeforeUnmount(() => {
 <template>
   <div class="page">
     <aside class="sidebar">
-      <header>
-        <h1>关系图谱引擎</h1>
-        <p class="subtitle">将非结构化文档转化为可视化的知识网络</p>
+      <header class="workspace-head">
+        <div class="workspace-head__copy">
+          <p class="eyebrow">关系图谱引擎</p>
+          <h1>把文档整理成可打开、可导出的关系网络</h1>
+          <p class="subtitle">围绕 Provider、Upload、Result、Preview 四个区域完成一条清晰的桌面工作流。</p>
+        </div>
+        <div class="workspace-state">
+          <span class="state-chip state-chip--provider">{{ providerModeLabel }}</span>
+          <span class="state-chip">{{ fileSummaryLabel }}</span>
+          <span class="state-chip" :class="workflowStateClass">{{ workflowStateLabel }}</span>
+        </div>
       </header>
 
       <ProviderPanel

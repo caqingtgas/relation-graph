@@ -7,6 +7,17 @@ const DEV_WORKER_MODULE = "relation_graph.run_desktop_worker";
 const DEV_WORKER_PROBE = "import httpx, pydantic, relation_graph.run_desktop_worker";
 const DEV_REQUIREMENTS_FILE = "requirements.txt";
 
+class RelationGraphDesktopError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = "RelationGraphDesktopError";
+    this.code = options.code || "worker_error";
+    this.retryable = Boolean(options.retryable);
+    this.details = options.details || {};
+    this.method = options.method || null;
+  }
+}
+
 class PythonWorkerClient {
   constructor(options = {}) {
     this.projectRoot = options.projectRoot;
@@ -128,8 +139,12 @@ class PythonWorkerClient {
     }
 
     const message = payload.error?.message || "桌面服务返回未知错误。";
-    const error = new Error(message);
-    error.code = payload.error?.code || "worker_error";
+    const error = new RelationGraphDesktopError(message, {
+      code: payload.error?.code,
+      retryable: payload.error?.retryable,
+      details: payload.error?.details,
+      method: payload.error?.method
+    });
     pending.reject(error);
   }
 
@@ -319,5 +334,6 @@ class PythonWorkerClient {
 }
 
 module.exports = {
-  PythonWorkerClient
+  PythonWorkerClient,
+  RelationGraphDesktopError
 };

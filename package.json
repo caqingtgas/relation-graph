@@ -1,18 +1,22 @@
 {
   "name": "relation-graph-desktop",
-  "version": "2.0.0",
+  "version": "2.4.9",
   "private": true,
   "description": "RelationGraph Windows desktop app built with Vue and Electron.",
+  "author": "caqingtgas",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "setup:frontend": "node scripts/ensure_frontend_deps.js",
+    "dev": "npm run setup:frontend && concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "wait-on tcp:5173 && electron .",
-    "test": "vitest run",
+    "test": "npm run setup:frontend && vitest run",
     "build": "npm run build:renderer",
-    "build:renderer": "vite build",
+    "build:renderer": "npm run setup:frontend && vite build",
     "build:worker": "node scripts/run_build_backend.js",
-    "dist:dir": "npm run build:worker && npm run build:renderer && electron-builder --dir",
+    "verify": "powershell -ExecutionPolicy Bypass -File scripts/verify.ps1",
+    "verify:dist": "powershell -ExecutionPolicy Bypass -File scripts/verify.ps1 -IncludeDist",
+    "dist:dir": "npm run setup:frontend && npm run build:worker && npm run build:renderer && electron-builder --dir",
     "dist": "npm run dist:dir"
   },
   "dependencies": {

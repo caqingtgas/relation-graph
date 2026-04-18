@@ -74,25 +74,49 @@ class RelationGraphDesktopWorker:
                 response["shutdown"] = True
             return response
         except DesktopServiceError as exc:
-            return self._error_response(request_id, str(exc), "service_error")
+            return self._error_response(
+                request_id,
+                str(exc),
+                exc.code,
+                retryable=exc.retryable,
+                details=exc.details,
+                method=method or None,
+            )
         except DesktopWorkerProtocolError as exc:
-            return self._error_response(request_id, str(exc), "protocol_error")
+            return self._error_response(request_id, str(exc), "protocol_error", method=method or None)
         except Exception as exc:
             logger.exception("桌面 worker 处理请求失败: %s", method or "<unknown>")
-            return self._error_response(request_id, f"桌面服务异常：{exc}", "internal_error")
+            return self._error_response(
+                request_id,
+                f"桌面服务异常：{exc}",
+                "internal_error",
+                retryable=True,
+                method=method or None,
+            )
 
     def _handle_shutdown(self, params: dict[str, Any]) -> dict[str, bool]:
         self._running = False
         return {"ok": True}
 
     @staticmethod
-    def _error_response(request_id: Any, message: str, code: str) -> dict[str, Any]:
+    def _error_response(
+        request_id: Any,
+        message: str,
+        code: str,
+        *,
+        retryable: bool = False,
+        details: dict[str, Any] | None = None,
+        method: str | None = None,
+    ) -> dict[str, Any]:
         return {
             "id": request_id,
             "ok": False,
             "error": {
                 "message": message,
                 "code": code,
+                "retryable": retryable,
+                "details": details or {},
+                "method": method,
             },
         }
 

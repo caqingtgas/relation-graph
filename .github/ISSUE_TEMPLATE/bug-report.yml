@@ -1,0 +1,74 @@
+name: Bug Report
+description: 报告可复现的问题，帮助维护者快速定位。
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请只填写已经真实复现的问题。界面猜测、环境猜测和未验证的“可能是”请先排除。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题概述
+      description: 用 1-3 句话说明实际现象和期望现象。
+      placeholder: 例如：本地模式已绑定模型目录，但点击“启动本地引擎”后仍提示端口被占用。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 按顺序写清楚操作路径。
+      placeholder: |
+        1. 启动桌面版
+        2. 切换到本地
+        3. 点击“已有模型并配置目录”
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 写清楚报错文案、状态提示、失败位置。
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图或日志
+      description: 粘贴关键报错、终端输出、截图路径；不要贴无关长日志。
+      placeholder: 例如：状态栏提示、PowerShell 终端输出、生成目录里的 metadata.json 片段。
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交
+      description: 例如 v2.4.9、main、某个 commit SHA。
+      placeholder: v2.4.9
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: 出问题的路线
+      options:
+        - 本地 Ollama
+        - 火山方舟 Ark
+        - 两者都受影响
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 只写和问题相关的信息，例如 Windows 版本、Python 版本、Node 版本、Ollama 路径状态。
+      placeholder: Windows 11 24H2，Python 3.11，Node 20，embedded_runtime/ollama/ollama.exe 已放置。

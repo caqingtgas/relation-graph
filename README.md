@@ -88,22 +88,22 @@ RelationGraph 是一个面向 Windows 的本地图谱工具。你可以把说明
 
 ### 开发运行
 
-1. 安装 Python 依赖
+1. 安装前端依赖
+
+```bash
+npm.cmd install
+```
+
+2. 安装 Python 依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 安装前端依赖
-
-```bash
-npm install
-```
-
 3. 启动桌面开发版
 
 ```bash
-npm run dev
+npm.cmd run dev
 ```
 
 Windows 下也可以直接使用：
@@ -111,6 +111,16 @@ Windows 下也可以直接使用：
 ```bat
 启动桌面开发版.bat
 ```
+
+如果 PowerShell 拦截了 `npm.ps1`，请改用 `npm.cmd`。
+
+更完整的本地开发、发布和验证说明见：
+
+- [开发环境搭建](docs/developer-setup.md)
+- [发布与打包](docs/release-build.md)
+- [发布前检查清单](docs/release-checklist.md)
+- [仓库卫生规则](docs/repo-hygiene.md)
+- [验证指南](docs/validation.md)
 
 ### 打包绿色版目录
 
@@ -123,7 +133,7 @@ pip install -r requirements-desktop.txt
 2. 构建分发目录
 
 ```bash
-npm run dist:dir
+npm.cmd run dist:dir
 ```
 
 输出目录：
@@ -188,7 +198,7 @@ set RELATION_GRAPH_PACKAGER_PYTHON=C:\Path\To\python.exe
 
 桌面 worker 打包默认只接受标准 CPython `3.9` 到 `3.13`。
 
-`npm run dist:dir` 会先通过 Node 启动脚本寻找可用 Python，再进入 `scripts/build_backend.py` 的解释器选择逻辑，不要求系统 PATH 里必须存在 `python` 命令别名。
+`npm.cmd run dist:dir` 会先通过 Node 启动脚本寻找可用 Python，再进入 `scripts/build_backend.py` 的解释器选择逻辑，不要求系统 PATH 里必须存在 `python` 命令别名。
 
 如果你只是临时验证，确实要放行其它版本，也必须显式设置：
 
@@ -218,23 +228,31 @@ set RELATION_GRAPH_ALLOW_UNSUPPORTED_PYTHON=1
 
 ### 测试
 
+日常验证命令见 [验证指南](docs/validation.md)。CI 也会执行同一组核心检查。
+
+推荐直接执行：
+
+```bash
+npm.cmd run verify
+```
+
 Python:
 
 ```bash
 pip install -r requirements.txt
-pytest -q
+python -m pytest -q
 ```
 
 前端:
 
 ```bash
-npm test
+npm.cmd test
 ```
 
 构建 renderer:
 
 ```bash
-npm run build
+npm.cmd run build:renderer
 ```
 
 ## 致谢

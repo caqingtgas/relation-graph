@@ -14,7 +14,10 @@ const emit = defineEmits<{
 <template>
   <main class="viewer">
     <div class="viewer-header">
-      <span>图谱可视化预览</span>
+      <div>
+        <span class="eyebrow">Preview</span>
+        <span class="viewer-title">图谱可视化预览</span>
+      </div>
       <div class="viewer-actions">
         <button
           v-if="standaloneGraphFilePath"
@@ -37,7 +40,10 @@ const emit = defineEmits<{
       </div>
     </div>
     <div class="iframe-container">
-      <div v-if="!previewUrl" class="iframe-placeholder">生成完毕后，此处将展示动态关系图谱</div>
+      <div v-if="!previewUrl" class="iframe-placeholder">
+        <strong>等待结果生成</strong>
+        <span>完成后这里会展示可交互的动态关系图谱。</span>
+      </div>
       <iframe v-else id="graphFrame" :src="previewUrl" title="图谱预览"></iframe>
     </div>
   </main>

@@ -57,6 +57,11 @@ const modelOptions = computed(() => getLocalModelOptions(props.providerStatus));
   </section>
 
   <section v-if="localPanelVisible" class="mode-panel">
+    <div class="panel-heading">
+      <span class="eyebrow">Provider</span>
+      <h2>本地路线状态</h2>
+      <p>适合需要离线执行、文件留在本机的场景。</p>
+    </div>
     <div class="local-actions">
       <button
         v-if="canStartLocalRuntime"
@@ -86,7 +91,10 @@ const modelOptions = computed(() => getLocalModelOptions(props.providerStatus));
 
     <section class="provider-panel">
       <div class="provider-panel__header">
-        <span class="provider-panel__title">本地路线状态</span>
+        <div>
+          <span class="provider-panel__eyebrow">运行态</span>
+          <span class="provider-panel__title">本地路线状态</span>
+        </div>
         <span
           class="provider-badge"
           :class="providerStatus?.providerMode === 'local' ? 'provider-badge--local' : 'provider-badge--ark'"
@@ -123,6 +131,11 @@ const modelOptions = computed(() => getLocalModelOptions(props.providerStatus));
   </section>
 
   <section v-else class="mode-panel">
+    <div class="panel-heading">
+      <span class="eyebrow">Provider</span>
+      <h2>云端接口配置</h2>
+      <p>填写密钥后即可调用火山方舟，不影响本地配置。</p>
+    </div>
     <div class="config-panel">
       <div class="config-panel__heading">云端接口配置</div>
       <div class="config-content">
