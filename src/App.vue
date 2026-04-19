@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { onBeforeUnmount, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import FileUploadPanel from "./components/FileUploadPanel.vue";
 import PreviewPanel from "./components/PreviewPanel.vue";
@@ -10,8 +10,6 @@ import { useRelationGraphStore } from "./stores/relationGraph";
 const relationGraphStore = useRelationGraphStore();
 const {
   apiKey,
-  canLaunchLocalRuntimeTerminal,
-  canStartLocalRuntime,
   currentResult,
   isLoading,
   model,
@@ -24,33 +22,6 @@ const {
   statusMessage,
   statusType
 } = storeToRefs(relationGraphStore);
-
-const providerModeLabel = computed(() => (selectedProvider.value === "local" ? "本地路线" : "云端路线"));
-const fileSummaryLabel = computed(() => {
-  const count = selectedFiles.value.length;
-  if (count === 0) {
-    return "尚未选择文件";
-  }
-  return `${count} 个文件已就绪`;
-});
-const workflowStateLabel = computed(() => {
-  if (currentResult.value) {
-    return "结果已生成";
-  }
-  if (isLoading.value) {
-    return "生成中";
-  }
-  return "待启动";
-});
-const workflowStateClass = computed(() => {
-  if (currentResult.value) {
-    return "state-chip--success";
-  }
-  if (isLoading.value) {
-    return "state-chip--busy";
-  }
-  return "state-chip--neutral";
-});
 
 onMounted(async () => {
   await relationGraphStore.initialize();
@@ -66,14 +37,8 @@ onBeforeUnmount(() => {
     <aside class="sidebar">
       <header class="workspace-head">
         <div class="workspace-head__copy">
-          <p class="eyebrow">关系图谱引擎</p>
-          <h1>把文档整理成可打开、可导出的关系网络</h1>
-          <p class="subtitle">围绕 Provider、Upload、Result、Preview 四个区域完成一条清晰的桌面工作流。</p>
-        </div>
-        <div class="workspace-state">
-          <span class="state-chip state-chip--provider">{{ providerModeLabel }}</span>
-          <span class="state-chip">{{ fileSummaryLabel }}</span>
-          <span class="state-chip" :class="workflowStateClass">{{ workflowStateLabel }}</span>
+          <h1>关系织图</h1>
+          <p class="subtitle">把文本文档图谱化建模成关系图谱</p>
         </div>
       </header>
 
@@ -85,15 +50,11 @@ onBeforeUnmount(() => {
         :remember-api-key="rememberApiKey"
         :model="model"
         :is-loading="isLoading"
-        :can-start-local-runtime="canStartLocalRuntime"
-        :can-launch-local-runtime-terminal="canLaunchLocalRuntimeTerminal"
         @update:selected-provider="selectedProvider = $event; relationGraphStore.persistConfig()"
         @update:selected-local-model="selectedLocalModel = $event"
         @update:api-key="apiKey = $event; relationGraphStore.persistConfig()"
         @update:remember-api-key="rememberApiKey = $event; relationGraphStore.persistConfig()"
         @update:model="model = $event; relationGraphStore.persistConfig()"
-        @start-local-runtime="relationGraphStore.startLocalRuntime"
-        @launch-local-runtime-terminal="relationGraphStore.launchLocalRuntimeTerminal"
         @download-and-configure-models="relationGraphStore.downloadAndConfigureModels"
         @select-existing-model-dir="relationGraphStore.selectExistingModelDir"
         @change-preferred-local-model="relationGraphStore.changePreferredLocalModel"

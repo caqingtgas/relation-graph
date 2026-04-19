@@ -57,17 +57,6 @@ class _LocalProviderStub:
         self.captured["download_model_dir"] = model_dir
         return dict(self.status_payload)
 
-    def ensure_started(self):
-        payload = dict(self.status_payload)
-        payload["local_runtime_status"] = "ready"
-        return payload
-
-    def launch_runtime_terminal(self):
-        payload = dict(self.status_payload)
-        payload["detail"] = "已打开本地引擎终端。"
-        self.captured["launch_runtime_terminal"] = True
-        return payload
-
     def set_preferred_model(self, model_name: str):
         self.captured["model_name"] = model_name
         payload = dict(self.status_payload)
@@ -171,6 +160,16 @@ def test_get_provider_status_is_read_only():
     service.shutdown()
 
 
+def test_get_provider_status_can_request_auto_start():
+    service, local_provider, _ = _build_service()
+
+    response = service.get_provider_status({"auto_start": True})
+
+    assert response["local_runtime_status"] == "stopped"
+    assert local_provider.captured["auto_start"] is True
+    service.shutdown()
+
+
 def test_worker_returns_structured_protocol_error():
     worker = RelationGraphDesktopWorker(service=RelationGraphDesktopService(ServiceDependencies(_JobManagerStub(), _LocalProviderStub())))
     response = worker._handle_line(json.dumps({"id": "1", "method": "unknown.method", "params": {}}))
@@ -196,14 +195,4 @@ def test_service_raises_structured_error_for_missing_job():
     with pytest.raises(DesktopServiceError, match="任务不存在"):
         service.get_job_status({"job_id": "missing"})
 
-    service.shutdown()
-
-
-def test_launch_runtime_terminal_routes_to_local_provider():
-    service, local_provider, _ = _build_service()
-
-    response = service.launch_runtime_terminal()
-
-    assert response["detail"] == "已打开本地引擎终端。"
-    assert local_provider.captured["launch_runtime_terminal"] is True
     service.shutdown()

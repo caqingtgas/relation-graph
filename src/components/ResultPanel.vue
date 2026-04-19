@@ -33,7 +33,6 @@ const metaInfoText = computed(() => buildMetaInfoText(props.result.runId, metada
 <template>
   <div class="result-panel">
     <div class="panel-heading panel-heading--compact">
-      <span class="eyebrow">Result</span>
       <h2>生成成功</h2>
       <p>结果已落盘，可直接打开文件、导出独立图谱，或者展开查看细节元数据。</p>
     </div>

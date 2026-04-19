@@ -56,8 +56,9 @@ class RelationGraphDesktopService:
         self._local_provider_manager.shutdown()
         self._started = False
 
-    def get_provider_status(self) -> dict[str, object]:
-        return self._local_provider_manager.get_public_status(auto_start=False)
+    def get_provider_status(self, params: dict[str, Any] | None = None) -> dict[str, object]:
+        auto_start = bool((params or {}).get("auto_start"))
+        return self._local_provider_manager.get_public_status(auto_start=auto_start)
 
     def bind_model_dir(self, params: dict[str, Any]) -> dict[str, object]:
         model_dir = self._require_string(params, "model_dir")
@@ -82,24 +83,6 @@ class RelationGraphDesktopService:
                 code="provider_download_failed",
                 retryable=True,
             ) from exc
-
-    def ensure_started(self) -> dict[str, object]:
-        try:
-            return self._local_provider_manager.ensure_started()
-        except RuntimeError as exc:
-            raise DesktopServiceError(str(exc), code="provider_start_failed") from exc
-        except Exception as exc:
-            logger.exception("启动本地模型失败")
-            raise DesktopServiceError("启动本地模型失败，请稍后重试。", code="provider_start_internal", retryable=True) from exc
-
-    def launch_runtime_terminal(self) -> dict[str, object]:
-        try:
-            return self._local_provider_manager.launch_runtime_terminal()
-        except RuntimeError as exc:
-            raise DesktopServiceError(str(exc), code="provider_terminal_unavailable") from exc
-        except Exception as exc:
-            logger.exception("打开本地引擎终端失败")
-            raise DesktopServiceError("打开本地引擎终端失败，请稍后重试。", code="provider_terminal_failed", retryable=True) from exc
 
     def set_preferred_model(self, params: dict[str, Any]) -> dict[str, object]:
         model_name = self._require_string(params, "model_name")

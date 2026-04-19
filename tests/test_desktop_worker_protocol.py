@@ -15,8 +15,11 @@ class StubService:
     def shutdown(self) -> None:
         self.shutdown_called = True
 
-    def get_provider_status(self) -> dict[str, object]:
-        return {"provider_mode": "ark", "local_runtime_status": "stopped"}
+    def get_provider_status(self, params: dict[str, object] | None = None) -> dict[str, object]:
+        return {
+            "provider_mode": "ark",
+            "local_runtime_status": "ready" if (params or {}).get("auto_start") else "stopped",
+        }
 
     def bind_model_dir(self, params: dict[str, object]) -> dict[str, object]:
         raise DesktopServiceError(
@@ -27,12 +30,6 @@ class StubService:
         )
 
     def download_models(self, params: dict[str, object]) -> dict[str, object]:
-        return {}
-
-    def ensure_started(self) -> dict[str, object]:
-        return {}
-
-    def launch_runtime_terminal(self) -> dict[str, object]:
         return {}
 
     def set_preferred_model(self, params: dict[str, object]) -> dict[str, object]:
@@ -68,6 +65,15 @@ def test_service_error_preserves_code_retryable_and_details():
     assert response["error"]["retryable"] is False
     assert response["error"]["method"] == "provider.bindModelDir"
     assert response["error"]["details"] == {"parameter": "model_dir"}
+
+
+def test_provider_status_request_preserves_auto_start_flag():
+    worker = RelationGraphDesktopWorker(service=StubService())
+
+    response = worker._handle_line('{"id":"req-4","method":"provider.getStatus","params":{"auto_start":true}}')
+
+    assert response["ok"] is True
+    assert response["result"]["local_runtime_status"] == "ready"
 
 
 def test_shutdown_request_sets_shutdown_flag():

@@ -26,10 +26,7 @@ export function isSupportedFileName(fileName: string) {
 }
 
 export function getProviderBadge(status: ProviderStatus | null) {
-  if (status?.providerMode === "local") {
-    return "LOCAL";
-  }
-  return (status?.localRuntimeStatus || "ARK").toUpperCase();
+  return status?.localRuntimeStatus === "ready" ? "就位" : "未就位";
 }
 
 export function getCloudHint(status: ProviderStatus | null) {

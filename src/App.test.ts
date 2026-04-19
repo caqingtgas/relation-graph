@@ -77,8 +77,6 @@ function installMockApi(overrides: Partial<RelationGraphApi> = {}) {
     getProviderStatus: vi.fn().mockResolvedValue(providerStatus),
     selectExistingModelDir: vi.fn().mockResolvedValue(providerStatus),
     downloadAndConfigureModels: vi.fn().mockResolvedValue(providerStatus),
-    ensureLocalRuntimeStarted: vi.fn().mockResolvedValue(providerStatus),
-    launchLocalRuntimeTerminal: vi.fn().mockResolvedValue(providerStatus),
     setPreferredLocalModel: vi.fn().mockResolvedValue(providerStatus),
     pickInputFiles: vi.fn().mockResolvedValue([
       { path: "E:/demo.txt", name: "demo.txt", size: 1024 }
@@ -161,7 +159,61 @@ describe("App", () => {
     expect(wrapper.text()).not.toContain("请选择文件并开始生成图谱。");
   });
 
-  it("keeps the start-local action visible for retryable failed runtime states", async () => {
+  it("auto-polls ollama status while local mode is selected and not ready", async () => {
+    vi.useFakeTimers();
+    const getProviderStatus = vi.fn()
+      .mockResolvedValueOnce({
+        ...providerStatus,
+        providerMode: "ark",
+        localRuntimeStatus: "failed",
+        localModelDir: "E:/models",
+        detail: "本地推理端口 11435 已被其他程序占用或运行时未就绪。"
+      })
+      .mockResolvedValueOnce({
+        ...providerStatus,
+        providerMode: "local",
+        localRuntimeStatus: "ready",
+        localModelName: "qwen3.5:9b",
+        localModelDir: "E:/models",
+        detail: "本地模型已就绪。"
+      });
+    installMockApi({ getProviderStatus });
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    await flushPromises();
+
+    await vi.advanceTimersByTimeAsync(2500);
+    await flushPromises();
+
+    expect(getProviderStatus).toHaveBeenCalledTimes(2);
+    expect(getProviderStatus).toHaveBeenNthCalledWith(1, { autoStart: true });
+    expect(getProviderStatus).toHaveBeenNthCalledWith(2, { autoStart: true });
+    expect(wrapper.text()).toContain("本地模型已就绪");
+    expect(wrapper.text()).toContain("就位");
+  });
+
+  it("does not let provider polling overwrite an unrelated status message", async () => {
+    vi.useFakeTimers();
+    const getProviderStatus = vi.fn().mockResolvedValue({
+      ...providerStatus,
+      providerMode: "ark",
+      localRuntimeStatus: "failed",
+      localModelDir: "E:/models",
+      detail: "本地推理端口 11435 已被其他程序占用或运行时未就绪。"
+    });
+    installMockApi({ getProviderStatus });
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    await flushPromises();
+
+    await wrapper.get(".drop-zone").trigger("click");
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2500);
+    await flushPromises();
+
+    expect(getProviderStatus).toHaveBeenCalledTimes(2);
+    expect(wrapper.get(".status").text()).toContain("已就绪，准备处理 1 个文件");
+  });
+
+  it("keeps failed runtime states marked as not ready while retaining model directory actions", async () => {
     installMockApi({
       getProviderStatus: vi.fn().mockResolvedValue({
         ...providerStatus,
@@ -174,7 +226,9 @@ describe("App", () => {
     const wrapper = mount(App, { global: { plugins: [createPinia()] } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("启动本地引擎");
+    expect(wrapper.text()).toContain("未就位");
+    expect(wrapper.text()).toContain("下载模型并配置目录");
+    expect(wrapper.text()).toContain("已有模型并配置目录");
   });
 
   it("rejects an invalid second file selection without polluting the current file list", async () => {

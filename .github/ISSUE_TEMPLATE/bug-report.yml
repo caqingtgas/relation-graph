@@ -14,7 +14,7 @@ body:
     attributes:
       label: 问题概述
       description: 用 1-3 句话说明实际现象和期望现象。
-      placeholder: 例如：本地模式已绑定模型目录，但点击“启动本地引擎”后仍提示端口被占用。
+      placeholder: 例如：本地模式已绑定模型目录，状态持续显示“未就位”，但确认 embedded_runtime/ollama/ollama.exe 已放置。
     validations:
       required: true
 
@@ -50,8 +50,8 @@ body:
     id: version
     attributes:
       label: 版本或提交
-      description: 例如 v2.4.9、main、某个 commit SHA。
-      placeholder: v2.4.9
+      description: 例如 v2.7.0、main、某个 commit SHA。
+      placeholder: v2.7.0
     validations:
       required: true
 

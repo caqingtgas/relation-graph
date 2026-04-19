@@ -151,11 +151,13 @@ function createWindow() {
 }
 
 function registerIpcHandlers() {
-  ipcMain.handle("relation-graph:getProviderStatus", async () => {
+  ipcMain.handle("relation-graph:getProviderStatus", async (_, options = {}) => {
     if (workerStartupError) {
       throw new Error(workerStartupError);
     }
-    return mapProviderStatus(await workerClient.invoke("provider.getStatus"));
+    return mapProviderStatus(await workerClient.invoke("provider.getStatus", {
+      auto_start: Boolean(options?.autoStart)
+    }));
   });
   ipcMain.handle("relation-graph:pickInputFiles", async () => {
     const result = await dialog.showOpenDialog({
@@ -188,10 +190,6 @@ function registerIpcHandlers() {
     }
     return mapProviderStatus(await workerClient.invoke("provider.downloadModels", { model_dir: result.filePaths[0] }));
   });
-  ipcMain.handle("relation-graph:ensureLocalRuntimeStarted", async () => mapProviderStatus(await workerClient.invoke("provider.ensureStarted")));
-  ipcMain.handle("relation-graph:launchLocalRuntimeTerminal", async () =>
-    mapProviderStatus(await workerClient.invoke("provider.launchRuntimeTerminal"))
-  );
   ipcMain.handle("relation-graph:setPreferredLocalModel", (_, modelName) =>
     workerClient.invoke("provider.setPreferredModel", { model_name: modelName }).then(mapProviderStatus)
   );

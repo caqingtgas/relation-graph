@@ -164,11 +164,34 @@
   var slider = document.getElementById("graph-zoom-slider");
   var valueNode = document.getElementById("graph-zoom-value");
   var thresholdSlider = document.getElementById("graph-threshold-slider");
-  var thresholdValueNode = document.getElementById("graph-threshold-value");
-  var thresholdTag = document.getElementById("graph-threshold-tag");
   var fitButton = document.getElementById("graph-fit-btn");
+  var ticksGroup = document.getElementById("graph-zoom-ticks");
+  var thresholdMarker = document.getElementById("graph-threshold-marker");
+  var zoomMarker = document.getElementById("graph-zoom-marker");
   var railConfigured = false;
   var captureTimer = null;
+  var sliderSvgWidth = 284;
+  var sliderBaseY = 20;
+  var sliderTickCount = 41;
+
+  function ensureTicks() {
+    if (!ticksGroup || ticksGroup.childNodes.length > 0) {
+      return;
+    }
+    for (var i = 0; i < sliderTickCount; i += 1) {
+      var x = (i / (sliderTickCount - 1)) * sliderSvgWidth;
+      var major = i % 8 === 0 || i === sliderTickCount - 1;
+      var h = major ? 12 : 6;
+      var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", String(x));
+      line.setAttribute("y1", String(sliderBaseY - h));
+      line.setAttribute("x2", String(x));
+      line.setAttribute("y2", String(sliderBaseY));
+      line.setAttribute("stroke", "rgba(15,23,42,0.42)");
+      line.setAttribute("stroke-width", "1");
+      ticksGroup.appendChild(line);
+    }
+  }
 
   function sliderMin() {
     return Number(slider.min || "0.05");
@@ -191,13 +214,36 @@
   }
 
   function syncThresholdTag() {
+    if (!thresholdMarker) {
+      return thresholdScale();
+    }
     var min = thresholdMin();
     var max = thresholdMax();
     var scale = thresholdScale();
-    var percent = ((scale - min) / (max - min)) * 100;
-    thresholdTag.style.left = percent + "%";
-    thresholdTag.textContent = "临界 " + formatScale(scale);
-    thresholdValueNode.textContent = formatScale(scale);
+    var ratio = max === min ? 0 : (scale - min) / (max - min);
+    var x = ratio * sliderSvgWidth;
+    thresholdMarker.setAttribute(
+      "points",
+      x + "," + sliderBaseY + " " + (x - 6) + "," + (sliderBaseY - 11) + " " + (x + 6) + "," + (sliderBaseY - 11)
+    );
+    return scale;
+  }
+
+  function syncZoomMarker(scale) {
+    if (!zoomMarker && !valueNode) {
+      return;
+    }
+    var min = sliderMin();
+    var max = sliderMax();
+    var clampedScale = clamp(scale, min, max);
+    var ratio = max === min ? 0 : (clampedScale - min) / (max - min);
+    var x = ratio * sliderSvgWidth;
+    if (zoomMarker) {
+      zoomMarker.setAttribute("cx", String(x));
+    }
+    if (valueNode) {
+      valueNode.style.left = x + "px";
+    }
   }
 
   function configureRail(referenceScale) {
@@ -217,6 +263,7 @@
     var clampedScale = clamp(referenceScale, sliderMin(), sliderMax());
     slider.value = String(clampedScale);
     valueNode.textContent = formatScale(clampedScale);
+    syncZoomMarker(clampedScale);
     syncThresholdTag();
   }
 
@@ -281,6 +328,7 @@
   slider.addEventListener("input", function() {
     var targetScale = clamp(Number(slider.value), sliderMin(), sliderMax());
     valueNode.textContent = formatScale(targetScale);
+    syncZoomMarker(targetScale);
     network.moveTo({
       position: network.getViewPosition(),
       scale: targetScale,
@@ -321,6 +369,7 @@
     if (scale !== null) {
       slider.value = String(clamp(scale, sliderMin(), sliderMax()));
       valueNode.textContent = formatScale(scale);
+      syncZoomMarker(scale);
     }
     updateEdgeLabels();
   });
@@ -332,6 +381,7 @@
       } else {
         slider.value = String(clamp(scale, sliderMin(), sliderMax()));
         valueNode.textContent = formatScale(scale);
+        syncZoomMarker(scale);
       }
     }
     updateEdgeLabels();
@@ -348,6 +398,7 @@
   });
 
   var immediateScale = currentScale();
+  ensureTicks();
   if (immediateScale !== null) {
     configureRail(immediateScale);
   }

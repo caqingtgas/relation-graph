@@ -38,153 +38,101 @@
       z-index: 9999;
       display: flex;
       flex-direction: column;
+      align-items: flex-end;
       gap: 8px;
-      min-width: 260px;
-      padding: 12px 14px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-      backdrop-filter: blur(10px);
+    }
+
+    .graph-zoom-glass {
+      background:
+        linear-gradient(180deg, rgba(182, 191, 204, 0.14) 0%, rgba(148, 163, 184, 0.1) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 6px 14px rgba(15, 23, 42, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px) saturate(138%);
     }
 
     .graph-zoom-panel__row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      color: #1d2736;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .graph-zoom-panel__hint {
-      color: #64748b;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .graph-zoom-panel__meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      color: #475569;
-      font-size: 12px;
-      font-weight: 600;
+      justify-content: flex-end;
+      gap: 8px;
+      min-height: 34px;
+      order: 1;
     }
 
     .graph-zoom-rail {
       position: relative;
-      height: 44px;
       display: flex;
       align-items: center;
+      justify-content: center;
+      width: max-content;
+      min-height: 48px;
+      padding: 6px 24px;
+      border-radius: 999px;
+      order: 2;
     }
 
-    .graph-zoom-rail::before {
-      content: "";
+    .graph-zoom-rail__inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 284px;
+      height: 40px;
+    }
+
+    .graph-zoom-panel__value {
       position: absolute;
+      top: 35px;
       left: 0;
-      right: 0;
-      top: 50%;
-      height: 6px;
-      transform: translateY(-50%);
-      border-radius: 999px;
-      background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 100%);
+      transform: translateX(-50%);
+      color: #6b7280;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
+      opacity: 0.95;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .graph-zoom-svg {
+      display: block;
+      width: 100%;
+      height: 40px;
+      overflow: visible;
     }
 
     .graph-zoom-range {
       position: absolute;
       inset: 0;
       width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
       margin: 0;
-      background: transparent;
-      -webkit-appearance: none;
-      appearance: none;
-      pointer-events: auto;
-    }
-
-    .graph-zoom-range:focus {
-      outline: none;
-    }
-
-    .graph-zoom-range::-webkit-slider-runnable-track {
-      height: 6px;
-      background: transparent;
-    }
-
-    .graph-zoom-range::-moz-range-track {
-      height: 6px;
-      background: transparent;
-      border: none;
-    }
-
-    .graph-zoom-range::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      margin-top: -6px;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
-    }
-
-    .graph-zoom-range::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
-    }
-
-    #graph-zoom-slider::-webkit-slider-thumb {
-      background: #1f66d1;
-    }
-
-    #graph-zoom-slider::-moz-range-thumb {
-      background: #1f66d1;
-    }
-
-    #graph-threshold-slider::-webkit-slider-thumb {
-      background: #e11d48;
-      width: 14px;
-      height: 24px;
-      margin-top: -9px;
-      border-radius: 999px;
-    }
-
-    #graph-threshold-slider::-moz-range-thumb {
-      background: #e11d48;
-      width: 14px;
-      height: 24px;
-      border-radius: 999px;
-    }
-
-    .graph-threshold-tag {
-      position: absolute;
-      top: -2px;
-      transform: translateX(-50%);
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: #e11d48;
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.2;
-      white-space: nowrap;
-      pointer-events: none;
     }
 
     .graph-fit-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border: none;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 700;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 50%;
       color: #1f66d1;
-      background: #eff6ff;
       cursor: pointer;
+    }
+
+    .graph-fit-btn svg {
+      width: 16px;
+      height: 16px;
+      display: block;
     }
   </style>
 </head>
@@ -192,22 +140,26 @@
   <div id="graph-network"></div>
   <div class="graph-zoom-panel" id="graph-zoom-panel">
     <div class="graph-zoom-panel__row">
-      <span>缩放比例</span>
-      <div class="graph-zoom-panel__meta">
-        <span id="graph-zoom-value">--</span>
-        <button class="graph-fit-btn" id="graph-fit-btn" type="button">适应视图</button>
+      <button class="graph-fit-btn graph-zoom-glass" id="graph-fit-btn" type="button" title="适应视图" aria-label="适应视图">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+          <path d="M12 3.5V7M12 17V20.5M3.5 12H7M17 12H20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="graph-zoom-rail graph-zoom-glass">
+      <div class="graph-zoom-rail__inner">
+        <svg class="graph-zoom-svg" id="graph-zoom-svg" viewBox="0 0 284 40" aria-hidden="true" focusable="false">
+          <g id="graph-zoom-ticks"></g>
+          <line x1="0" y1="20" x2="284" y2="20" stroke="rgba(15,23,42,0.42)" stroke-width="0.5"></line>
+          <polygon id="graph-threshold-marker" points="0,20 -6,9 6,9" fill="rgba(255,110,110,0.66)"></polygon>
+          <circle id="graph-zoom-marker" cx="0" cy="20" r="6" fill="rgba(100,170,255,0.52)" stroke="rgba(160,210,255,0.72)" stroke-width="1"></circle>
+        </svg>
+        <span class="graph-zoom-panel__value" id="graph-zoom-value">--</span>
+        <input class="graph-zoom-range" id="graph-zoom-slider" type="range" min="0.4" max="3" step="0.01" value="1">
+        <input class="graph-zoom-range" id="graph-threshold-slider" type="range" min="0.4" max="3" step="0.01" value="1.6">
       </div>
     </div>
-    <div class="graph-zoom-rail">
-      <div class="graph-threshold-tag" id="graph-threshold-tag">临界 --</div>
-      <input class="graph-zoom-range" id="graph-zoom-slider" type="range" min="0.4" max="3" step="0.01" value="1">
-      <input class="graph-zoom-range" id="graph-threshold-slider" type="range" min="0.4" max="3" step="0.01" value="1.6">
-    </div>
-    <div class="graph-zoom-panel__meta">
-      <span>边关系显示临界</span>
-      <span id="graph-threshold-value">--</span>
-    </div>
-    <div class="graph-zoom-panel__hint">蓝色控制缩放，红色控制边标签显示阈值。</div>
   </div>
   __GRAPH_DATA_SCRIPT__
   <script>

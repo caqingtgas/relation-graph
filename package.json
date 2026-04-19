@@ -1,6 +1,6 @@
 {
   "name": "relation-graph-desktop",
-  "version": "2.4.9",
+  "version": "2.7.0",
   "private": true,
   "description": "RelationGraph Windows desktop app built with Vue and Electron.",
   "author": "caqingtgas",

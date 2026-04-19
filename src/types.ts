@@ -84,12 +84,10 @@ export interface JobPayload {
 }
 
 export interface RelationGraphApi {
-  getProviderStatus(): Promise<ProviderStatus>;
+  getProviderStatus(options?: { autoStart?: boolean }): Promise<ProviderStatus>;
   pickInputFiles(): Promise<DesktopInputFile[]>;
   selectExistingModelDir(): Promise<ProviderStatus>;
   downloadAndConfigureModels(): Promise<ProviderStatus>;
-  ensureLocalRuntimeStarted(): Promise<ProviderStatus>;
-  launchLocalRuntimeTerminal(): Promise<ProviderStatus>;
   setPreferredLocalModel(modelName: string): Promise<ProviderStatus>;
   submitJob(payload: {
     api_key: string;

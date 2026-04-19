@@ -15,8 +15,7 @@ const emit = defineEmits<{
   <main class="viewer">
     <div class="viewer-header">
       <div>
-        <span class="eyebrow">Preview</span>
-        <span class="viewer-title">图谱可视化预览</span>
+        <span class="viewer-title">图谱预览</span>
       </div>
       <div class="viewer-actions">
         <button

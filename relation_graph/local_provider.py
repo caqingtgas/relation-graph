@@ -414,25 +414,6 @@ Read-Host '按回车关闭窗口'
 """
         self._launch_powershell_terminal(runtime_dir, script)
 
-    def launch_runtime_terminal(self, model_dir: Path) -> None:
-        runtime_dir, base_script = self._base_terminal_script(model_dir)
-        model_dir_text = self.quote_ps(str(model_dir))
-        host_text = self.quote_ps(f"{LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT}")
-        runtime_dir_text = self.quote_ps(str(runtime_dir))
-        script = base_script + f"""
-Write-Host '正在手动启动本地引擎...'
-Write-Host 'Ollama目录: {runtime_dir_text}'
-Write-Host '模型目录: {model_dir_text}'
-Write-Host '监听地址: {host_text}'
-Write-Host ''
-& .\\ollama.exe serve
-Write-Host ''
-Write-Host '本地引擎终端已退出。'
-Read-Host '按回车关闭窗口'
-"""
-        self._launch_powershell_terminal(runtime_dir, script)
-
-
 class LocalProviderManager:
     def __init__(self):
         self._lock = threading.Lock()
@@ -473,7 +454,7 @@ class LocalProviderManager:
         if not path.exists() or not path.is_dir():
             raise RuntimeError("所选路径无效，请重新选择目录。")
         self._config_store.save(model_dir=path)
-        return self.get_public_status(auto_start=False)
+        return self.get_public_status(auto_start=True)
 
     def download_models_and_configure(self, model_dir: str | Path) -> dict[str, object]:
         if os.name != "nt":
@@ -513,26 +494,6 @@ class LocalProviderManager:
             if start_error:
                 raise RuntimeError(start_error)
             return self._get_public_status_locked(auto_start=False).to_dict()
-
-    def launch_runtime_terminal(self) -> dict[str, object]:
-        embedded_ollama_exe = resolve_embedded_ollama_exe()
-        if not embedded_ollama_exe.exists():
-            raise RuntimeError(f"未找到嵌入式 Ollama，请将 ollama.exe 放入 {embedded_ollama_exe.parent}。")
-        model_dir = self._config_store.load_model_dir()
-        if model_dir is None:
-            raise RuntimeError("尚未配置本地模型目录，请先下载模型并配置目录，或绑定已有模型目录。")
-        if not model_dir.exists() or not model_dir.is_dir():
-            raise RuntimeError("已保存的本地模型目录不存在，请重新配置目录。")
-
-        with self._lock:
-            self._runtime.launch_runtime_terminal(model_dir)
-
-        status = self.get_public_status(auto_start=False)
-        status["detail"] = (
-            f"已打开本地引擎终端，正在尝试以 {model_dir} 作为模型目录启动 Ollama。"
-            " 如终端里出现缺库、端口占用或模型目录错误，可直接按终端提示排查。"
-        )
-        return status
 
     def set_preferred_model(self, model_name: str) -> dict[str, object]:
         normalized = (model_name or "").strip()
@@ -575,7 +536,78 @@ class LocalProviderManager:
             f"已在 {model_dir} 识别到本地模型 {models_text}，"
             f"但当前 {LOCAL_OLLAMA_HOST}:{LOCAL_OLLAMA_PORT} 上运行的 Ollama 未暴露这些模型。"
             " 通常是旧的或其他项目启动的 Ollama 进程占用了该端口，"
-            "或服务启动时没有绑定这个模型目录。请先关闭已有 ollama.exe，再重新点击“启动本地引擎”。"
+            "或服务启动时没有绑定这个模型目录。请先关闭已有 ollama.exe，应用会继续自动检测当前项目的本地引擎状态。"
+        )
+
+    def _build_model_dir_not_configured_status(self, preferred_model: str) -> LocalProviderStatus:
+        available_models: list[str] = []
+        runtime_ready = self._runtime.is_ready()
+        if runtime_ready:
+            try:
+                runtime_models = self._list_model_names_locked()
+            except OllamaClientError:
+                runtime_ready = False
+            else:
+                normalized_runtime_models = {name.strip() for name in runtime_models}
+                available_models = [candidate for candidate in LOCAL_MODEL_CANDIDATES if candidate in normalized_runtime_models]
+
+        if runtime_ready:
+            if available_models:
+                detail = (
+                    f"已检测到嵌入式 Ollama 运行中，当前可用模型为 {' / '.join(available_models)}。"
+                    " 但尚未配置本地模型目录，请先下载模型并配置目录，或绑定已有模型目录。"
+                )
+            else:
+                detail = (
+                    "已检测到嵌入式 Ollama 运行中，但当前未识别到白名单模型。"
+                    f" 请先下载或放入 {' / '.join(LOCAL_MODEL_CANDIDATES)}，再绑定对应模型目录。"
+                )
+        elif self._is_port_open():
+            detail = (
+                f"已检测到本地推理端口 {LOCAL_OLLAMA_PORT} 被占用，但尚未配置本地模型目录。"
+                " 请先下载模型并配置目录，或绑定已有模型目录。"
+            )
+        else:
+            detail = "尚未配置本地模型目录；应用会继续自动检测嵌入式 Ollama。请先下载模型并配置目录，或绑定已有模型目录。"
+
+        return self._build_status(
+            runtime_status=LocalRuntimeStatus.NOT_CONFIGURED,
+            detail=detail,
+            model_dir=None,
+            preferred_model=preferred_model,
+            available_models=available_models,
+        )
+
+    def _build_runtime_waiting_status(
+        self,
+        *,
+        model_dir: Path,
+        preferred_model: str,
+        disk_models: list[str],
+        chosen_disk_model: str | None,
+    ) -> LocalProviderStatus:
+        if self._is_port_open():
+            return self._build_status(
+                runtime_status=LocalRuntimeStatus.FAILED,
+                detail=f"本地推理端口 {LOCAL_OLLAMA_PORT} 已被其他程序占用或运行时未就绪。",
+                model_dir=model_dir,
+                preferred_model=preferred_model,
+                available_models=disk_models,
+            )
+        if chosen_disk_model is not None:
+            return self._build_status(
+                runtime_status=LocalRuntimeStatus.STOPPED,
+                detail=f"本地模型目录已配置，当前正在等待 Ollama 就绪；应用会自动持续检测，检测到后将使用 {chosen_disk_model}。",
+                model_dir=model_dir,
+                preferred_model=preferred_model,
+                available_models=disk_models,
+            )
+        return self._build_status(
+            runtime_status=LocalRuntimeStatus.MISSING_MODEL,
+            detail=f"当前目录尚未识别到白名单模型，请下载或放入 {' / '.join(LOCAL_MODEL_CANDIDATES)}。",
+            model_dir=model_dir,
+            preferred_model=preferred_model,
+            available_models=disk_models,
         )
 
     def _get_public_status_locked(self, *, auto_start: bool) -> LocalProviderStatus:
@@ -602,13 +634,7 @@ class LocalProviderManager:
 
         model_dir = self._config_store.load_model_dir()
         if model_dir is None:
-            return self._build_status(
-                runtime_status=LocalRuntimeStatus.NOT_CONFIGURED,
-                detail="尚未配置本地模型目录，请先下载模型并配置目录，或绑定已有模型目录。",
-                model_dir=None,
-                preferred_model=preferred_model,
-                available_models=[],
-            )
+            return self._build_model_dir_not_configured_status(preferred_model)
         if not model_dir.exists() or not model_dir.is_dir():
             return self._build_status(
                 runtime_status=LocalRuntimeStatus.NOT_CONFIGURED,
@@ -632,55 +658,21 @@ class LocalProviderManager:
                     available_models=disk_models,
                 )
         elif not self._runtime.is_ready():
-            if self._is_port_open():
-                return self._build_status(
-                    runtime_status=LocalRuntimeStatus.FAILED,
-                    detail=f"本地推理端口 {LOCAL_OLLAMA_PORT} 已被其他程序占用或运行时未就绪。",
-                    model_dir=model_dir,
-                    preferred_model=preferred_model,
-                    available_models=disk_models,
-                )
-            if chosen_disk_model is not None:
-                return self._build_status(
-                    runtime_status=LocalRuntimeStatus.STOPPED,
-                    detail=f"本地模型目录已配置，ollama当前未启动。可手动启动后使用 {chosen_disk_model}。",
-                    model_dir=model_dir,
-                    preferred_model=preferred_model,
-                    available_models=disk_models,
-                )
-            return self._build_status(
-                runtime_status=LocalRuntimeStatus.MISSING_MODEL,
-                detail=f"当前目录尚未识别到白名单模型，请下载或放入 {' / '.join(LOCAL_MODEL_CANDIDATES)}。",
+            return self._build_runtime_waiting_status(
                 model_dir=model_dir,
                 preferred_model=preferred_model,
-                available_models=disk_models,
+                disk_models=disk_models,
+                chosen_disk_model=chosen_disk_model,
             )
 
         try:
             model_names = self._list_model_names_locked()
         except OllamaClientError:
-            if self._is_port_open():
-                return self._build_status(
-                    runtime_status=LocalRuntimeStatus.FAILED,
-                    detail=f"本地推理端口 {LOCAL_OLLAMA_PORT} 已被其他程序占用或运行时未就绪。",
-                    model_dir=model_dir,
-                    preferred_model=preferred_model,
-                    available_models=disk_models,
-                )
-            if chosen_disk_model is not None:
-                return self._build_status(
-                    runtime_status=LocalRuntimeStatus.STOPPED,
-                    detail=f"本地模型目录已配置，ollama当前未启动。可手动启动后使用 {chosen_disk_model}。",
-                    model_dir=model_dir,
-                    preferred_model=preferred_model,
-                    available_models=disk_models,
-                )
-            return self._build_status(
-                runtime_status=LocalRuntimeStatus.MISSING_MODEL,
-                detail=f"当前目录尚未识别到白名单模型，请下载或放入 {' / '.join(LOCAL_MODEL_CANDIDATES)}。",
+            return self._build_runtime_waiting_status(
                 model_dir=model_dir,
                 preferred_model=preferred_model,
-                available_models=disk_models,
+                disk_models=disk_models,
+                chosen_disk_model=chosen_disk_model,
             )
 
         normalized_runtime_models = {name.strip() for name in model_names}

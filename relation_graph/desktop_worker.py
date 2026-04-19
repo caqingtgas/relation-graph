@@ -19,11 +19,9 @@ class RelationGraphDesktopWorker:
     def __init__(self, service: RelationGraphDesktopService | None = None):
         self._service = service or RelationGraphDesktopService()
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
-            "provider.getStatus": lambda params: self._service.get_provider_status(),
+            "provider.getStatus": self._service.get_provider_status,
             "provider.bindModelDir": self._service.bind_model_dir,
             "provider.downloadModels": self._service.download_models,
-            "provider.ensureStarted": lambda params: self._service.ensure_started(),
-            "provider.launchRuntimeTerminal": lambda params: self._service.launch_runtime_terminal(),
             "provider.setPreferredModel": self._service.set_preferred_model,
             "job.submit": self._service.submit_job,
             "job.getStatus": self._service.get_job_status,

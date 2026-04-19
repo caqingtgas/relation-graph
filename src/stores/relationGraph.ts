@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { loadConfig, saveConfig } from "../services/configStore";
 import { createJobPoller } from "../services/jobPolling";
@@ -23,24 +23,28 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
   const selectedLocalModel = ref(DEFAULT_LOCAL_MODEL);
   const statusMessage = ref("正在检测本地引擎...");
   const statusType = ref<"info" | "success" | "error">("info");
+  const statusOwner = ref<"provider" | "user" | "job">("provider");
   const isLoading = ref(false);
   const currentJob = ref<JobPayload | null>(null);
   const currentResult = ref<JobResult | null>(null);
   const previewUrl = ref("");
   let providerRefreshTimer: number | null = null;
 
-  const canStartLocalRuntime = computed(() => {
-    const runtimeStatus = providerStatus.value?.localRuntimeStatus;
-    return runtimeStatus === "stopped" || runtimeStatus === "failed";
-  });
-  const canLaunchLocalRuntimeTerminal = computed(() => {
-    const status = providerStatus.value;
-    return Boolean(status?.localModelDir && status.localRuntimeStatus !== "ready");
-  });
-
-  function setStatus(message: string, type: "info" | "success" | "error" = "info") {
+  function setStatus(
+    message: string,
+    type: "info" | "success" | "error" = "info",
+    owner: "provider" | "user" | "job" = "user"
+  ) {
     statusMessage.value = message;
     statusType.value = type;
+    statusOwner.value = owner;
+  }
+
+  function setProviderStatusMessage(status: ProviderStatus, force = false) {
+    if (!status.detail || (!force && statusOwner.value !== "provider")) {
+      return;
+    }
+    setStatus(status.detail, getProviderStatusType(status), "provider");
   }
 
   function clearProviderRefreshTimer() {
@@ -50,11 +54,11 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     }
   }
 
-  function shouldContinueProviderRefresh(status: ProviderStatus | null) {
+  function shouldAutoRefreshLocalProvider(status: ProviderStatus | null) {
     if (!status) {
       return false;
     }
-    return status.localRuntimeStatus === "starting" || status.localRuntimeStatus === "stopped";
+    return selectedProvider.value === "local" && status.localRuntimeStatus !== "ready";
   }
 
   function scheduleProviderRefresh(attemptsRemaining = 12, delayMs = 2500) {
@@ -63,11 +67,11 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
       return;
     }
     providerRefreshTimer = window.setTimeout(async () => {
-      const nextStatus = await refreshProviderStatus(true);
-      if (nextStatus?.detail) {
-        setStatus(nextStatus.detail, nextStatus.localRuntimeStatus === "ready" ? "success" : "info");
+      const nextStatus = await refreshProviderStatus(true, true);
+      if (nextStatus) {
+        setProviderStatusMessage(nextStatus);
       }
-      if (!shouldContinueProviderRefresh(nextStatus)) {
+      if (!shouldAutoRefreshLocalProvider(nextStatus)) {
         clearProviderRefreshTimer();
         return;
       }
@@ -124,9 +128,11 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     return Array.from(map.values());
   }
 
-  async function refreshProviderStatus(silent = false) {
+  async function refreshProviderStatus(silent = false, autoStartLocal = false) {
     try {
-      providerStatus.value = await relationGraphApi.getProviderStatus();
+      providerStatus.value = await relationGraphApi.getProviderStatus({
+        autoStart: autoStartLocal && selectedProvider.value === "local"
+      });
       selectedLocalModel.value = providerStatus.value.preferredLocalModel || DEFAULT_LOCAL_MODEL;
       return providerStatus.value;
     } catch (error) {
@@ -199,38 +205,14 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     setStatus(validationError || `已就绪，准备处理 ${selectedFiles.value.length} 个文件`, validationError ? "error" : "success");
   }
 
-  async function startLocalRuntime() {
-    try {
-      providerStatus.value = await relationGraphApi.ensureLocalRuntimeStarted();
-      selectedLocalModel.value = providerStatus.value.preferredLocalModel || selectedLocalModel.value;
-      setStatus(providerStatus.value.detail, providerStatus.value.localRuntimeStatus === "ready" ? "success" : "info");
-      if (shouldContinueProviderRefresh(providerStatus.value)) {
-        scheduleProviderRefresh();
-      }
-    } catch (error) {
-      setStatus((error as Error).message, "error");
-    }
-  }
-
   async function selectExistingModelDir() {
     try {
       providerStatus.value = await relationGraphApi.selectExistingModelDir();
       selectedLocalModel.value = providerStatus.value.preferredLocalModel || selectedLocalModel.value;
-      setStatus(providerStatus.value.detail, providerStatus.value.localRuntimeStatus === "ready" ? "success" : "info");
-      if (shouldContinueProviderRefresh(providerStatus.value)) {
+      setProviderStatusMessage(providerStatus.value, true);
+      if (shouldAutoRefreshLocalProvider(providerStatus.value)) {
         scheduleProviderRefresh();
       }
-    } catch (error) {
-      setStatus((error as Error).message, "error");
-    }
-  }
-
-  async function launchLocalRuntimeTerminal() {
-    try {
-      providerStatus.value = await relationGraphApi.launchLocalRuntimeTerminal();
-      selectedLocalModel.value = providerStatus.value.preferredLocalModel || selectedLocalModel.value;
-      setStatus(providerStatus.value.detail, "info");
-      scheduleProviderRefresh();
     } catch (error) {
       setStatus((error as Error).message, "error");
     }
@@ -240,7 +222,7 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     try {
       providerStatus.value = await relationGraphApi.downloadAndConfigureModels();
       selectedLocalModel.value = providerStatus.value.preferredLocalModel || selectedLocalModel.value;
-      setStatus(providerStatus.value.detail, "info");
+      setProviderStatusMessage(providerStatus.value, true);
       scheduleProviderRefresh();
     } catch (error) {
       setStatus((error as Error).message, "error");
@@ -250,7 +232,7 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
   async function changePreferredLocalModel() {
     try {
       providerStatus.value = await relationGraphApi.setPreferredLocalModel(selectedLocalModel.value);
-      setStatus(`本地优先模型已切换为 ${selectedLocalModel.value}`, "success");
+      setStatus(`本地优先模型已切换为 ${selectedLocalModel.value}`, "success", "provider");
     } catch (error) {
       setStatus((error as Error).message, "error");
     }
@@ -272,7 +254,8 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
       : `图谱生成成功，本次使用 ${provider}。`;
     setStatus(
       failedChunkCount > 0 ? `${successMessage} 已基于成功块生成，存在 ${failedChunkCount} 个文本块抽取失败。` : successMessage,
-      failedChunkCount > 0 ? "info" : "success"
+      failedChunkCount > 0 ? "info" : "success",
+      "job"
     );
   }
 
@@ -280,19 +263,19 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     currentJob.value = payload;
     if (payload.status === "queued") {
       const suffix = payload.queuePosition ? ` 当前排队第 ${payload.queuePosition} 位。` : "";
-      setStatus((payload.detail || "任务排队中...") + suffix, "info");
+      setStatus((payload.detail || "任务排队中...") + suffix, "info", "job");
       poller.schedule(payload.jobId, 2000);
       return;
     }
     if (payload.status === "running") {
-      setStatus(payload.detail || "任务处理中...", "info");
+      setStatus(payload.detail || "任务处理中...", "info", "job");
       poller.schedule(payload.jobId, 1500);
       return;
     }
     if (payload.status === "failed") {
       poller.stop();
       isLoading.value = false;
-      setStatus(payload.detail || "图谱生成失败。", "error");
+      setStatus(payload.detail || "图谱生成失败。", "error", "job");
       return;
     }
     if (payload.status === "succeeded" && payload.result) {
@@ -304,7 +287,7 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
 
   const poller = createJobPoller(relationGraphApi.getJobStatus, handleJobUpdate, (error) => {
     isLoading.value = false;
-    setStatus(error.message, "error");
+    setStatus(error.message, "error", "job");
   });
 
   async function generateGraph() {
@@ -321,7 +304,7 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     }
     const localReady = provider.localRuntimeStatus === "ready";
     if (selectedProvider.value === "local" && !localReady && provider.localRuntimeStatus !== "stopped") {
-      setStatus("当前已切换到本地模式，但本地模型尚未就绪，请先下载模型、绑定已有模型目录，或手动启动本地引擎。", "error");
+      setStatus("当前已切换到本地模式，但本地模型尚未就绪，请先下载模型或绑定已有模型目录；应用会自动持续检测本地引擎状态。", "error");
       return;
     }
     if (selectedProvider.value === "ark" && !apiKey.value.trim()) {
@@ -335,7 +318,8 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     resetResultPreview();
     setStatus(
       selectedProvider.value === "local" ? "当前使用本地模式，正在提交任务..." : "当前使用云端模式，正在提交任务...",
-      "info"
+      "info",
+      "job"
     );
 
     try {
@@ -348,7 +332,7 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
       handleJobUpdate(payload);
     } catch (error) {
       isLoading.value = false;
-      setStatus((error as Error).message, "error");
+      setStatus((error as Error).message, "error", "job");
     }
   }
 
@@ -374,12 +358,15 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
 
   async function initialize() {
     restoreConfig();
-    const initialStatus = await refreshProviderStatus();
+    const initialStatus = await refreshProviderStatus(false, selectedProvider.value === "local");
     if (statusType.value === "error") {
       return;
     }
+    if (shouldAutoRefreshLocalProvider(initialStatus)) {
+      scheduleProviderRefresh();
+    }
     if (initialStatus && hasSpecificStatusDetail(initialStatus)) {
-      setStatus(initialStatus.detail, getProviderStatusType(initialStatus));
+      setProviderStatusMessage(initialStatus, true);
       return;
     }
     if (statusMessage.value === "正在检测本地引擎...") {
@@ -392,10 +379,27 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     clearProviderRefreshTimer();
   }
 
+  watch(selectedProvider, async (nextProvider) => {
+    if (nextProvider !== "local") {
+      clearProviderRefreshTimer();
+      return;
+    }
+    const currentStatus = providerStatus.value ?? await refreshProviderStatus(true, true);
+    if (!currentStatus) {
+      return;
+    }
+    if (currentStatus.detail) {
+      setProviderStatusMessage(currentStatus, true);
+    }
+    if (shouldAutoRefreshLocalProvider(currentStatus)) {
+      scheduleProviderRefresh();
+      return;
+    }
+    clearProviderRefreshTimer();
+  });
+
   return {
     apiKey,
-    canStartLocalRuntime,
-    canLaunchLocalRuntimeTerminal,
     currentResult,
     generateGraph,
     handleDrop,
@@ -412,14 +416,12 @@ export const useRelationGraphStore = defineStore("relationGraph", () => {
     selectedLocalModel,
     selectedProvider,
     setStatus,
-    startLocalRuntime,
     statusMessage,
     statusType,
     cleanup,
     changePreferredLocalModel,
     downloadAndConfigureModels,
     exportStandaloneGraph,
-    launchLocalRuntimeTerminal,
     persistConfig,
     selectExistingModelDir
   };

@@ -24,7 +24,6 @@ const summaryText = computed(() => (
 <template>
   <div class="upload-section">
     <div class="panel-heading panel-heading--compact">
-      <span class="eyebrow">Upload</span>
       <h2>知识源文件</h2>
       <p>{{ summaryText }}</p>
     </div>

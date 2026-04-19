@@ -153,6 +153,49 @@ def test_local_provider_status_not_configured_without_embedded_runtime(tmp_path:
     assert status["preferred_local_model"] == "qwen3.5:9b"
 
 
+def test_local_provider_status_detects_runtime_before_model_dir_is_configured(tmp_path: Path, monkeypatch):
+    embedded_dir = tmp_path / "embedded"
+    embedded_dir.mkdir()
+    embedded_exe = embedded_dir / "ollama.exe"
+    embedded_exe.write_text("placeholder", encoding="utf-8")
+    config_path = tmp_path / "local_provider.json"
+
+    _patch_embedded_ollama(monkeypatch, embedded_exe)
+    monkeypatch.setattr(local_provider, "LOCAL_PROVIDER_CONFIG_PATH", config_path)
+    monkeypatch.setattr(local_provider.EmbeddedOllamaRuntime, "is_ready", lambda self: True)
+    monkeypatch.setattr(
+        local_provider.LocalProviderManager,
+        "_list_model_names_locked",
+        lambda self: ["qwen3.5:4b", "qwen3.5:9b"],
+    )
+
+    manager = local_provider.LocalProviderManager()
+    status = manager.get_public_status(auto_start=False)
+
+    assert status["local_runtime_status"] == "not_configured"
+    assert status["available_local_models"] == ["qwen3.5:9b", "qwen3.5:4b"]
+    assert "已检测到嵌入式 Ollama 运行中" in str(status["detail"])
+    assert "尚未配置本地模型目录" in str(status["detail"])
+
+
+def test_select_existing_model_dir_requests_auto_start(tmp_path: Path, monkeypatch):
+    manager = local_provider.LocalProviderManager()
+    calls = {"auto_start": None}
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+
+    def fake_status(*, auto_start=False):
+        calls["auto_start"] = auto_start
+        return {"local_runtime_status": "ready"}
+
+    monkeypatch.setattr(manager, "get_public_status", fake_status)
+
+    status = manager.select_existing_model_dir(model_dir)
+
+    assert calls["auto_start"] is True
+    assert status["local_runtime_status"] == "ready"
+
+
 def test_local_provider_status_missing_model_when_whitelist_not_found(tmp_path: Path, monkeypatch):
     embedded_dir = tmp_path / "embedded"
     embedded_dir.mkdir()
@@ -227,6 +270,7 @@ def test_local_provider_status_stopped_when_models_exist_on_disk(tmp_path: Path,
 
     assert status["local_runtime_status"] == "stopped"
     assert status["available_local_models"] == ["qwen3.5:9b"]
+    assert "自动持续检测" in str(status["detail"])
 
 
 def test_local_provider_status_reports_runtime_model_mismatch_when_disk_models_exist(tmp_path: Path, monkeypatch):
